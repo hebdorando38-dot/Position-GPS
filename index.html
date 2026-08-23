@@ -157,22 +157,33 @@
     border-bottom:1px solid var(--line);
   }
   .readout-row:last-child{ border-bottom:none; padding-bottom:0; }
-  .readout-row .value{
-    display:block; margin-top:6px;
+  .readout-row .label{ display:block; margin-bottom:8px; }
+
+  /* Chaque ligne de coordonnée : valeur calée à droite (les chiffres se
+     superposent d'une ligne à l'autre), lettre d'axe (N/E/S/O) alignée
+     dans sa propre colonne — même règle sur les trois blocs (degrés
+     décimaux, DMS, UTM) pour un alignement cohérent sur toute la carte. */
+  .coord-row{
+    display:flex; align-items:baseline; justify-content:flex-end;
+    gap:0.35em;
+  }
+  .coord-row + .coord-row{ margin-top:4px; }
+  .coord-val{
+    min-width:11ch; text-align:right;
     font-family:var(--font-mono); font-weight:700;
-    font-size:clamp(24px, 8vw, 34px);
-    line-height:1.35;
+    font-size:clamp(23px, 7.6vw, 32px);
+    line-height:1.3;
     font-variant-numeric:tabular-nums;
-    word-break:break-word;
     color:var(--ink);
   }
-  .coord-line{ display:block; }
-  .coord-line + .coord-line{ margin-top:2px; }
-  .coord-axis{
-    font-family:var(--font-display); font-size:0.38em; font-weight:800;
-    color:var(--ink-muted); letter-spacing:0.05em; margin-right:0.65em;
+  .coord-letter{
+    flex:none; text-align:left;
+    font-family:var(--font-mono); font-weight:800;
+    font-size:clamp(17px, 5.6vw, 23px);
+    color:var(--accent);
+    line-height:1.3;
   }
-  .accuracy{ font-size:12px; color:var(--ink-muted); margin-top:8px; }
+  .accuracy{ font-size:12px; color:var(--ink-muted); margin-top:10px; }
 
   .btn{
     appearance:none; border:none; cursor:pointer;
@@ -412,16 +423,24 @@ const rad2deg = r => r * 180 / Math.PI;
 
 function formatDD(v, decimals = 5){ return v.toFixed(decimals) + "°"; }
 
-function toDMS(decimalDegrees, isLatitude){
-  const hemisphere = isLatitude
-    ? (decimalDegrees >= 0 ? "N" : "S")
-    : (decimalDegrees >= 0 ? "E" : "O");
+function hemisphereOf(v, isLatitude){
+  return isLatitude ? (v >= 0 ? "N" : "S") : (v >= 0 ? "E" : "O");
+}
+
+// Valeur absolue formatée, sans hémisphère (affiché séparément, aligné à droite).
+function formatDDAbs(v, decimals = 5){ return Math.abs(v).toFixed(decimals) + "°"; }
+
+function toDMSAbs(decimalDegrees){
   const abs = Math.abs(decimalDegrees);
-  const degrees = Math.floor(abs);
-  const minutesFull = (abs - degrees) * 60;
-  const minutes = Math.floor(minutesFull);
-  const seconds = (minutesFull - minutes) * 60;
-  return degrees + "°" + minutes + "'" + seconds.toFixed(1) + '" ' + hemisphere;
+  let degrees = Math.floor(abs);
+  let minutesFull = (abs - degrees) * 60;
+  let minutes = Math.floor(minutesFull);
+  let seconds = (minutesFull - minutes) * 60;
+  // Reporte la retenue si l'arrondi à la décimale amène les secondes (ou
+  // les minutes) à 60 pile — sinon on afficherait par ex. 33°53'60.0".
+  if (seconds >= 59.95){ seconds = 0; minutes += 1; }
+  if (minutes >= 60){ minutes = 0; degrees += 1; }
+  return degrees + "°" + minutes + "'" + seconds.toFixed(1) + '"';
 }
 
 // UTM WGS84 — formules Snyder/USGS (mêmes constantes que la version Flutter).
@@ -522,34 +541,31 @@ let selectedPoint = null;     // dernier point touché sur la carte interactive
 el("dataset-pill").textContent = EMITTERS.length + " émetteurs chargés";
 
 /* ---------- Écran position ---------- */
+function coordRow(value, letter){
+  return `<div class="coord-row"><span class="coord-val">${value}</span>${letter ? `<span class="coord-letter">${letter}</span>` : ""}</div>`;
+}
+
 function renderPosition(pos){
   const { latitude, longitude, accuracy } = pos;
-  const dmsLat = toDMS(latitude, true);
-  const dmsLon = toDMS(longitude, false);
   const utm = toUTM(latitude, longitude);
 
   el("position-body").innerHTML = `
     <div class="readout">
       <div class="readout-row">
         <span class="label">Degrés déc.</span>
-        <span class="value">
-          <span class="coord-line"><span class="coord-axis">Lat</span>${formatDD(latitude)}</span>
-          <span class="coord-line"><span class="coord-axis">Lon</span>${formatDD(longitude)}</span>
-        </span>
+        ${coordRow(formatDDAbs(latitude), hemisphereOf(latitude, true))}
+        ${coordRow(formatDDAbs(longitude), hemisphereOf(longitude, false))}
       </div>
       <div class="readout-row">
         <span class="label">DMS</span>
-        <span class="value">
-          <span class="coord-line"><span class="coord-axis">Lat</span>${dmsLat}</span>
-          <span class="coord-line"><span class="coord-axis">Lon</span>${dmsLon}</span>
-        </span>
+        ${coordRow(toDMSAbs(latitude), hemisphereOf(latitude, true))}
+        ${coordRow(toDMSAbs(longitude), hemisphereOf(longitude, false))}
       </div>
       <div class="readout-row">
-        <span class="label">UTM (WGS84)</span>
-        <span class="value">
-          <span class="coord-line"><span class="coord-axis">Zone</span>${utm.zone}${utm.hemisphere} · ${Math.round(utm.easting)} mE</span>
-          <span class="coord-line"><span class="coord-axis">Nord</span>${Math.round(utm.northing)} mN</span>
-        </span>
+        <span class="label">UTM</span>
+        ${coordRow(utm.zone + utm.hemisphere)}
+        ${coordRow(Math.round(utm.easting) + " m", "E")}
+        ${coordRow(Math.round(utm.northing) + " m", "N")}
       </div>
     </div>
     ${accuracy != null ? `<div class="accuracy">Précision : ±${Math.round(accuracy)} m</div>` : ""}
