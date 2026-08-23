@@ -823,10 +823,29 @@ el("backdrop").addEventListener("click", closeSheet);
 /* ---------- Mise en cache hors-ligne (service worker) ---------- */
 if ("serviceWorker" in navigator){
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      // Redemande explicitement au navigateur de vérifier s'il existe une
+      // version plus récente de sw.js (sinon la vérif automatique peut
+      // attendre jusqu'à 24h selon les navigateurs).
+      reg.update().catch(() => {});
+    }).catch(() => {
       // L'appli continue de fonctionner sans mise en cache si l'enregistrement échoue
       // (par ex. navigateur trop ancien) — seul le mode hors-ligne "à froid" est perdu.
     });
+  });
+
+  // Dès qu'une nouvelle version du service worker prend le contrôle de la
+  // page (nouveau contenu mis en cache), on recharge une seule fois pour
+  // que la mise à jour s'affiche automatiquement, sans manipulation.
+  // On ignore le tout premier passage de contrôle (première visite, aucun
+  // service worker ne contrôlait encore la page) : ce n'est pas une mise à
+  // jour, inutile de recharger dans ce cas.
+  const hadControllerAlready = !!navigator.serviceWorker.controller;
+  let swRefreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (swRefreshing || !hadControllerAlready) return;
+    swRefreshing = true;
+    window.location.reload();
   });
 }
 

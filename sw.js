@@ -6,7 +6,7 @@
 // même (voir index.html) — ce service worker sert uniquement à ce que le
 // PREMIER chargement (avec réseau) reste disponible ensuite hors-ligne.
 
-const CACHE_NAME = "gra-locator-v1";
+const CACHE_NAME = "gra-locator-v3";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -14,6 +14,14 @@ const CORE_ASSETS = [
   "./icon-192.png",
   "./icon-512.png",
   "./icon-maskable-512.png",
+  "./club-logo.png",
+  "./leaflet.js",
+  "./leaflet.css",
+  "./images/marker-icon.png",
+  "./images/marker-icon-2x.png",
+  "./images/marker-shadow.png",
+  "./images/layers.png",
+  "./images/layers-2x.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -35,27 +43,41 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
+  // La page HTML elle-même : "réseau d'abord". Ainsi, dès qu'il y a du
+  // signal, la dernière version publiée sur GitHub Pages s'affiche
+  // directement (et se remet en cache pour le hors-ligne). Seulement si le
+  // réseau échoue (pas de signal), on retombe sur la version en cache.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
         .then((response) => {
-          // Met aussi en cache toute réponse valide obtenue en ligne,
-          // pour couvrir d'éventuels fichiers ajoutés plus tard.
           if (response && response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => {
-          // Hors-ligne et pas en cache : pour une navigation, retombe sur
-          // la page principale déjà mise en cache plutôt que d'échouer.
-          if (event.request.mode === "navigate") {
-            return caches.match("./index.html");
+        .catch(() =>
+          caches.match(event.request).then((cached) => cached || caches.match("./index.html"))
+        )
+    );
+    return;
+  }
+
+  // Tous les autres fichiers (icônes, carte, données) : "cache d'abord"
+  // pour rester rapide et fonctionner hors-ligne dès la première visite.
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
-          return undefined;
-        });
+          return response;
+        })
+        .catch(() => undefined);
     })
   );
 });
