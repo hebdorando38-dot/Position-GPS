@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>GRA Locator</title>
+<meta name="description" content="Position GPS et 6 émetteurs radio les plus proches du Grand Réseau des Alpes — application 100% hors-ligne." />
+<meta name="theme-color" content="#D65A1F" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="GRA Locator" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  /* ---------- Design tokens ---------- */
+  :root{
+    --bg:#F1F2EC;
+    --surface:#FFFFFF;
+    --surface-2:#E9EBE3;
+    --ink:#1B211F;
+    --ink-muted:#5B645F;
+    --line:#D6D9CF;
+    --accent:#D65A1F;
+    --accent-ink:#FFFFFF;
+    --accent-2:#2E6A57;
+    --accent-2-ink:#FFFFFF;
+    --danger:#B23A2E;
+    --danger-ink:#FFFFFF;
+    --radius:10px;
+    --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Roboto Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14181A;
+      --surface:#1C211E;
+      --surface-2:#242B27;
+      --ink:#EDEAE1;
+      --ink-muted:#9AA39C;
+      --line:#333B36;
+      --accent:#FF7A3D;
+      --accent-ink:#1B140F;
+      --accent-2:#59B398;
+      --accent-2-ink:#0E211B;
+      --danger:#FF6B5C;
+      --danger-ink:#2A0805;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14181A;
+    --surface:#1C211E;
+    --surface-2:#242B27;
+    --ink:#EDEAE1;
+    --ink-muted:#9AA39C;
+    --line:#333B36;
+    --accent:#FF7A3D;
+    --accent-ink:#1B140F;
+    --accent-2:#59B398;
+    --accent-2-ink:#0E211B;
+    --danger:#FF6B5C;
+    --danger-ink:#2A0805;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+  }
+
+  .label{
+    font-family:var(--font-display);
+    text-transform:uppercase;
+    letter-spacing:0.09em;
+    font-weight:700;
+    font-size:12px;
+    color:var(--ink-muted);
+  }
+  .mono{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
+
+  /* ---------- Shell ---------- */
+  #app{ max-width:520px; margin:0 auto; padding:0 16px 40px; }
+
+  .topbar{
+    position:sticky; top:0; z-index:5;
+    background:var(--bg);
+    padding:16px 0 10px;
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  }
+  .topbar h1{
+    font-family:var(--font-display);
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:0.02em;
+    margin:0;
+  }
+  .topbar h1 .accent{ color:var(--accent); }
+  .dataset-pill{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--ink-muted);
+    white-space:nowrap;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-top:16px;
+  }
+
+  /* ---------- Position readout ---------- */
+  .status-row{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--ink-muted); flex:none; }
+  .dot.live{ background:var(--accent-2); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent-2) 25%, transparent); }
+  .dot.error{ background:var(--danger); }
+  .status-text{ font-size:13px; color:var(--ink-muted); }
+
+  .readout{ margin-top:14px; display:grid; gap:12px; }
+  .readout-row{
+    display:grid;
+    grid-template-columns: 108px 1fr;
+    gap:10px;
+    align-items:start;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+  }
+  .readout-row:last-child{ border-bottom:none; padding-bottom:0; }
+  .readout-row .label{ padding-top:2px; }
+  .readout-row .value{ font-family:var(--font-mono); font-size:15px; font-variant-numeric:tabular-nums; word-break:break-word; }
+  .accuracy{ font-size:12px; color:var(--ink-muted); margin-top:2px; }
+
+  .btn{
+    appearance:none; border:none; cursor:pointer;
+    font-family:var(--font-display);
+    text-transform:uppercase; letter-spacing:0.06em; font-weight:700; font-size:13px;
+    padding:13px 18px; border-radius:8px;
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    width:100%;
+  }
+  .btn:focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
+  .btn-primary{ background:var(--accent); color:var(--accent-ink); }
+  .btn-secondary{ background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btn-primary[disabled]{ opacity:0.45; cursor:not-allowed; }
+
+  .error-card{ border-color:var(--danger); }
+  .error-card .msg{ margin:6px 0 14px; }
+
+  /* ---------- Nearest screen ---------- */
+  #nearest-screen{ display:none; }
+  .screen-header{ display:flex; align-items:center; gap:10px; padding:16px 0 4px; }
+  .back-btn{
+    background:none; border:none; cursor:pointer; color:var(--ink);
+    font-family:var(--font-display); font-weight:700; font-size:14px;
+    padding:6px 4px; display:flex; align-items:center; gap:4px;
+  }
+  .screen-header h2{ font-family:var(--font-display); font-size:16px; font-weight:800; margin:0; flex:1; letter-spacing:0.02em; }
+
+  .view-toggle{ display:flex; gap:6px; background:var(--surface-2); padding:4px; border-radius:8px; margin-top:12px; }
+  .view-toggle button{
+    flex:1; border:none; background:transparent; cursor:pointer;
+    font-family:var(--font-display); text-transform:uppercase; letter-spacing:0.06em; font-weight:700; font-size:12px;
+    padding:9px 8px; border-radius:6px; color:var(--ink-muted);
+  }
+  .view-toggle button.active{ background:var(--surface); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+
+  /* ---------- Polar diagram ---------- */
+  .diagram-wrap{ margin-top:16px; }
+  .diagram-wrap svg{ width:100%; height:auto; display:block; }
+  .ring{ fill:none; stroke:var(--line); stroke-width:1; }
+  .spoke{ stroke:var(--line); stroke-width:1; }
+  .cardinal{ font-family:var(--font-display); font-weight:800; font-size:12px; fill:var(--ink-muted); }
+  .user-dot{ fill:var(--accent); }
+  .user-ring{ fill:none; stroke:var(--accent); stroke-width:2; opacity:0.35; }
+  .emitter-dot{ fill:var(--accent-2); stroke:var(--surface); stroke-width:2; cursor:pointer; }
+  .emitter-group:focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
+  .emitter-rank{ font-family:var(--font-display); font-weight:800; font-size:11px; fill:var(--accent-2-ink); pointer-events:none; }
+  .scale-label{ font-family:var(--font-mono); font-size:9px; fill:var(--ink-muted); }
+  .diagram-hint{ font-size:12px; color:var(--ink-muted); text-align:center; margin-top:10px; }
+
+  /* ---------- List view ---------- */
+  .list{ margin-top:16px; display:grid; gap:8px; }
+  .list-row{
+    display:grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items:center; gap:10px;
+    padding:12px; border:1px solid var(--line); border-radius:8px;
+    background:var(--surface); cursor:pointer; text-align:left; width:100%;
+    font-family:var(--font-body); color:var(--ink);
+  }
+  .list-row:focus-visible{ outline:3px solid var(--accent); outline-offset:1px; }
+  .list-rank{ font-family:var(--font-mono); font-weight:700; color:var(--accent-2); font-size:13px; }
+  .list-name{ font-size:14px; font-weight:600; }
+  .list-sub{ font-size:12px; color:var(--ink-muted); margin-top:1px; }
+  .list-metrics{ text-align:right; font-family:var(--font-mono); font-size:12px; white-space:nowrap; }
+
+  /* ---------- Detail sheet ---------- */
+  .backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:10;
+    opacity:0; pointer-events:none; transition:opacity 0.15s ease;
+  }
+  .backdrop.open{ opacity:1; pointer-events:auto; }
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:11;
+    background:var(--surface); border-top:1px solid var(--line);
+    border-radius:16px 16px 0 0;
+    padding:10px 20px 26px;
+    max-width:520px; margin:0 auto;
+    transform:translateY(100%); transition:transform 0.18s ease;
+    max-height:70vh; overflow-y:auto;
+  }
+  .sheet.open{ transform:translateY(0); }
+  .sheet-handle{ width:36px; height:4px; border-radius:2px; background:var(--line); margin:6px auto 14px; }
+  .sheet h3{ font-family:var(--font-display); font-size:18px; margin:0 0 2px; }
+  .sheet .tags{ display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 14px; }
+  .tag{ font-family:var(--font-mono); font-size:11px; padding:3px 8px; border-radius:100px; background:var(--surface-2); color:var(--ink-muted); }
+  .sheet-grid{ display:grid; gap:10px; }
+  .sheet-row{ display:grid; grid-template-columns:100px 1fr; gap:10px; }
+  .sheet-row .label{ padding-top:1px; }
+  .sheet-row .value{ font-family:var(--font-mono); font-size:14px; }
+
+  footer{ margin-top:28px; font-size:11px; color:var(--ink-muted); text-align:center; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <h1>GRA <span class="accent">Locator</span></h1>
+    <div class="dataset-pill mono" id="dataset-pill">— émetteurs</div>
+  </div>
+
+  <!-- ===== Écran position ===== -->
+  <div id="position-screen">
+    <div class="card" id="position-card">
+      <div class="status-row">
+        <span class="dot" id="status-dot"></span>
+        <span class="status-text" id="status-text">Initialisation…</span>
+      </div>
+      <div id="position-body"></div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" id="btn-nearest" disabled>Voir les 6 émetteurs proches</button>
+    </div>
+  </div>
+
+  <!-- ===== Écran émetteurs proches ===== -->
+  <div id="nearest-screen">
+    <div class="screen-header">
+      <button class="back-btn" id="btn-back">← Retour</button>
+      <h2>6 émetteurs les plus proches</h2>
+    </div>
+
+    <div class="view-toggle">
+      <button id="toggle-diagram" class="active">Diagramme</button>
+      <button id="toggle-list">Liste</button>
+    </div>
+
+    <div class="diagram-wrap" id="diagram-view">
+      <svg id="diagram-svg" viewBox="0 0 320 320" role="img" aria-label="Diagramme polaire des émetteurs proches"></svg>
+      <p class="diagram-hint">Touchez un repère pour le détail — les numéros correspondent à l'onglet Liste.</p>
+    </div>
+
+    <div class="list" id="list-view" style="display:none;"></div>
+  </div>
+
+  <footer>Fonctionne entièrement hors-ligne · aucune donnée envoyée sur le réseau</footer>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-handle"></div>
+  <h3 id="sheet-title"></h3>
+  <div class="tags" id="sheet-tags"></div>
+  <div class="sheet-grid" id="sheet-grid"></div>
+</div>
+
+<script>
+"use strict";
+
+/* ======================================================================
+   DONNÉES — émetteurs du Grand Réseau des Alpes (embarquées, hors-ligne)
+   ====================================================================== */
+const EMITTERS = [{"name": "D-B. ETOILE — Pic de Belle étoile", "code": "D-B. ETOILE", "descriptif": "Pic de Belle étoile", "reseau": "Dauphiné", "massif": "Belledonne", "altitude": 2719.0, "lat": 45.2369, "lon": 6.0539}, {"name": "D-CHARTREU — L'Aulp du Seuil", "code": "D-CHARTREU", "descriptif": "L'Aulp du Seuil", "reseau": "Dauphiné", "massif": "Chartreuse", "altitude": 1830.0, "lat": 45.3652, "lon": 5.9028}, {"name": "D-D. OURS — Dent de l'Ours", "code": "D-D. OURS", "descriptif": "Dent de l'Ours", "reseau": "Dauphiné", "massif": "Chartreuse", "altitude": 1745.0, "lat": 45.3887, "lon": 5.8208}, {"name": "D-GRAOU — Tête du Graou", "code": "D-GRAOU", "descriptif": "Tête du Graou", "reseau": "Dauphiné", "massif": "Les écrins", "altitude": 3021.0, "lat": 44.9566, "lon": 6.2151}, {"name": "D-LA SURE — La Sure", "code": "D-LA SURE", "descriptif": "La Sure", "reseau": "Dauphiné", "massif": "Vercors", "altitude": 1579.0, "lat": 45.2352, "lon": 5.5974}, {"name": "D-MOUCHERO — La Grande Moucherolle", "code": "D-MOUCHERO", "descriptif": "La Grande Moucherolle", "reseau": "Dauphiné", "massif": "Vercors", "altitude": 2138.0, "lat": 45.005, "lon": 5.5642}, {"name": "D-OBIOU — Grande Tête de l'Obiou", "code": "D-OBIOU", "descriptif": "Grande Tête de l'Obiou", "reseau": "Dauphiné", "massif": "Dévoluy", "altitude": 2744.0, "lat": 44.7753, "lon": 5.8395}, {"name": "D-ORIOL — Montagne de Musan", "code": "D-ORIOL", "descriptif": "Montagne de Musan", "reseau": "Dauphiné", "massif": "Vercors", "altitude": 1218.0, "lat": 44.988, "lon": 5.2244}, {"name": "D-P. BLANC — Pic du Lac Blanc", "code": "D-P. BLANC", "descriptif": "Pic du Lac Blanc", "reseau": "Dauphiné", "massif": "Les rousses", "altitude": 3301.0, "lat": 45.1252, "lon": 6.1277}, {"name": "D-ROUIES — Les Rouies", "code": "D-ROUIES", "descriptif": "Les Rouies", "reseau": "Dauphiné", "massif": "Les écrins", "altitude": 3514.0, "lat": 44.8695, "lon": 6.2554}, {"name": "D-S. COLLET — Super Collet", "code": "D-S. COLLET", "descriptif": "Super Collet", "reseau": "Dauphiné", "massif": "Belledonne", "altitude": 2059.0, "lat": 45.3864, "lon": 6.1484}, {"name": "D-S. MARCEL — Saint-Marcellin", "code": "D-S. MARCEL", "descriptif": "Saint-Marcellin", "reseau": "Dauphiné", "massif": "Vercors", "altitude": 174.0, "lat": 45.1522, "lon": 5.3096}, {"name": "D-S. VERCOR — Roc de Peyrole", "code": "D-S. VERCOR", "descriptif": "Roc de Peyrole", "reseau": "Dauphiné", "massif": "Vercors", "altitude": 1963.0, "lat": 44.7688, "lon": 5.4571}, {"name": "D-TAILLEFE — Le Taillefer", "code": "D-TAILLEFE", "descriptif": "Le Taillefer", "reseau": "Dauphiné", "massif": "Taillefer", "altitude": 2844.0, "lat": 45.0393, "lon": 5.9408}, {"name": "EALERTE — Sambuy", "code": "EALERTE", "descriptif": "Sambuy", "reseau": "Emergnecy74", "massif": "Bauges", "altitude": 2198.0, "lat": 45.691717, "lon": 6.265358}, {"name": "EALERTE — Grande Jeanne", "code": "EALERTE", "descriptif": "Grande Jeanne", "reseau": "Emergnecy74", "massif": "Bauges", "altitude": 2198.0, "lat": 45.883621, "lon": 6.126941}, {"name": "EALERTE — Parmelan", "code": "EALERTE", "descriptif": "Parmelan", "reseau": "Emergnecy74", "massif": "Aravis", "altitude": 1830.0, "lat": 45.94932, "lon": 6.22071}, {"name": "EALERTE — Crêt du Loup", "code": "EALERTE", "descriptif": "Crêt du Loup", "reseau": "Emergnecy74", "massif": "Aravis", "altitude": 1864.0, "lat": 45.890705, "lon": 6.452018}, {"name": "EALERTE — Agy", "code": "EALERTE", "descriptif": "Agy", "reseau": "Emergnecy74", "massif": "Aiguilles Rouges", "altitude": 1270.0, "lat": 46.080242, "lon": 6.618998}, {"name": "MB-A. MIDI — Aiguille du Midi", "code": "MB-A. MIDI", "descriptif": "Aiguille du Midi", "reseau": "Mont Blanc", "massif": "Mont Blanc", "altitude": 3683.0, "lat": 45.8787, "lon": 6.8879}, {"name": "MB-GD.MONTET — Aiguille des Grands Montets", "code": "MB-GD.MONTET", "descriptif": "Aiguille des Grands Montets", "reseau": "Mont Blanc", "massif": "Mont blanc", "altitude": 3256.0, "lat": 45.9478, "lon": 6.9605}, {"name": "MB-MT. BUET — Mont Buet", "code": "MB-MT. BUET", "descriptif": "Mont Buet", "reseau": "Mont Blanc", "massif": "Mont blanc", "altitude": 3082.0, "lat": 46.0213, "lon": 6.8494}, {"name": "MB-MT. JOLY — Mont Joly", "code": "MB-MT. JOLY", "descriptif": "Mont Joly", "reseau": "Mont Blanc", "massif": "Mont blanc", "altitude": 2497.0, "lat": 45.826, "lon": 6.693}, {"name": "O-CHAILLOT — Crête de Chaillol (Crête de Côte Plaine)", "code": "O-CHAILLOT", "descriptif": "Crête de Chaillol (Crête de Côte Plaine)", "reseau": "Oisans", "massif": "Oisans", "altitude": null, "lat": 45.0604, "lon": 6.3646}, {"name": "O-CONDAMINE — Cime de la Condamine", "code": "O-CONDAMINE", "descriptif": "Cime de la Condamine", "reseau": "Oisans", "massif": "Ecrins", "altitude": 2935.0, "lat": 44.8925, "lon": 6.5198}, {"name": "O-GALIBIER — Le Grand Galibier", "code": "O-GALIBIER", "descriptif": "Le Grand Galibier", "reseau": "Oisans", "massif": "Ecrins", "altitude": 3201.0, "lat": 45.0638, "lon": 6.4341}, {"name": "O-JABEL — Roche de Jabel", "code": "O-JABEL", "descriptif": "Roche de Jabel", "reseau": "Oisans", "massif": "Ecrins", "altitude": 3510.0, "lat": 44.9511, "lon": 6.4371}, {"name": "O-PÉCÉ — Pointe de Pécé", "code": "O-PÉCÉ", "descriptif": "Pointe de Pécé", "reseau": "Oisans", "massif": "Névache Vallée étroite", "altitude": 2708.0, "lat": 44.9966, "lon": 6.6934}, {"name": "O-PIC BURE — Pic de Bure", "code": "O-PIC BURE", "descriptif": "Pic de Bure", "reseau": "Oisans", "massif": "Oisans", "altitude": 2608.0, "lat": 44.6243, "lon": 5.9327}, {"name": "O-R. BRUNE — Pic de Rochebrune", "code": "O-R. BRUNE", "descriptif": "Pic de Rochebrune", "reseau": "Oisans", "massif": "Queyras", "altitude": 3243.0, "lat": 44.8222, "lon": 6.7875}, {"name": "O-VAUTISSE — Tête de Vautisse", "code": "O-VAUTISSE", "descriptif": "Tête de Vautisse", "reseau": "Oisans", "massif": "Crévoux", "altitude": 3114.0, "lat": 44.7009, "lon": 6.4854}, {"name": "O-VERDONE — Pointe de Verdonne", "code": "O-VERDONE", "descriptif": "Pointe de Verdonne", "reseau": "Oisans", "massif": "Ecrins", "altitude": 3275.0, "lat": 44.7986, "lon": 6.3383}, {"name": "O-VEYRES — Crête des Veyres", "code": "O-VEYRES", "descriptif": "Crête des Veyres", "reseau": "Oisans", "massif": "Oisans", "altitude": null, "lat": 44.6307, "lon": 6.7703}, {"name": "U-LESTROP — Tête de l'Estrop", "code": "U-LESTROP", "descriptif": "Tête de l'Estrop", "reseau": "Ubaye", "massif": "Ubaye", "altitude": null, "lat": 44.286, "lon": 6.5044}, {"name": "U-LURE — Sommet de Lure", "code": "U-LURE", "descriptif": "Sommet de Lure", "reseau": "Ubaye", "massif": "Ubaye", "altitude": null, "lat": 44.1228, "lon": 5.8029}, {"name": "U-PANESTREL — Pic de Panestrel", "code": "U-PANESTREL", "descriptif": "Pic de Panestrel", "reseau": "Ubaye", "massif": "Ubaye", "altitude": null, "lat": 44.5921, "lon": 6.7922}, {"name": "U-T. AIGLE — Le Trou de l'Aigle", "code": "U-T. AIGLE", "descriptif": "Le Trou de l'Aigle", "reseau": "Ubaye", "massif": "Mercantour", "altitude": 2880.0, "lat": 44.2641, "lon": 6.7231}, {"name": "U-TETE DE FER — Tête de Fer", "code": "U-TETE DE FER", "descriptif": "Tête de Fer", "reseau": "Ubaye", "massif": null, "altitude": 2845.0, "lat": 44.4071, "lon": 6.8454}, {"name": "V-A. ROUGE — Aiguille Rouge", "code": "V-A. ROUGE", "descriptif": "Aiguille Rouge", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 3212.0, "lat": 45.5515, "lon": 6.848}, {"name": "V-C. CARON — Cime de Caron", "code": "V-C. CARON", "descriptif": "Cime de Caron", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 3161.0, "lat": 45.2639, "lon": 6.56}, {"name": "V-CHAPIEUX — La Clavettaz", "code": "V-CHAPIEUX", "descriptif": "La Clavettaz", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 2620.0, "lat": 45.6941, "lon": 6.7614}, {"name": "V-EAUX NOIR — Roc des Eaux Noires", "code": "V-EAUX NOIR", "descriptif": "Roc des Eaux Noires", "reseau": "Vanoise", "massif": "Vanoise", "altitude": null, "lat": 45.3116, "lon": 6.6513}, {"name": "V-G. ROCHET — La Grande Rochette", "code": "V-G. ROCHET", "descriptif": "La Grande Rochette", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 2491.0, "lat": 45.4917, "lon": 6.6841}, {"name": "V-GD MONT — Le Grand Mont", "code": "V-GD MONT", "descriptif": "Le Grand Mont", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 2659.0, "lat": 45.6321, "lon": 6.5371}, {"name": "V-GD TRUC — Grand Truc", "code": "V-GD TRUC", "descriptif": "Grand Truc", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 2209.0, "lat": 45.279, "lon": 6.2663}, {"name": "V-GDE MOTTE — Grande Motte", "code": "V-GDE MOTTE", "descriptif": "Grande Motte", "reseau": "Vanoise", "massif": "Vanoise", "altitude": null, "lat": 45.4154, "lon": 6.8769}, {"name": "V-LESCIERE — Pointe des Lessières", "code": "V-LESCIERE", "descriptif": "Pointe des Lessières", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 3002.0, "lat": 45.4181, "lon": 7.0211}, {"name": "V-M. BOCHOR — Mont Bochor", "code": "V-M. BOCHOR", "descriptif": "Mont Bochor", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 2001.0, "lat": 45.3895, "lon": 6.7413}, {"name": "V-MT. CENIS — Col du Lou", "code": "V-MT. CENIS", "descriptif": "Col du Lou", "reseau": "Vanoise", "massif": "Vanoise", "altitude": 3041.0, "lat": 45.2601, "lon": 6.9431}, {"name": "V-ROC NOIR — Roc Noir", "code": "V-ROC NOIR", "descriptif": "Roc Noir", "reseau": "Vanoise", "massif": "Vanoise", "altitude": null, "lat": 45.3303, "lon": 6.8919}]
+;
+
+/* ======================================================================
+   CONVERSIONS DE COORDONNÉES (Dart pur -> JS, mêmes formules)
+   ====================================================================== */
+const deg2rad = d => d * Math.PI / 180;
+const rad2deg = r => r * 180 / Math.PI;
+
+function formatDD(v, decimals = 5){ return v.toFixed(decimals) + "°"; }
+
+function toDMS(decimalDegrees, isLatitude){
+  const hemisphere = isLatitude
+    ? (decimalDegrees >= 0 ? "N" : "S")
+    : (decimalDegrees >= 0 ? "E" : "O");
+  const abs = Math.abs(decimalDegrees);
+  const degrees = Math.floor(abs);
+  const minutesFull = (abs - degrees) * 60;
+  const minutes = Math.floor(minutesFull);
+  const seconds = (minutesFull - minutes) * 60;
+  return degrees + "°" + minutes + "'" + seconds.toFixed(1) + '" ' + hemisphere;
+}
+
+// UTM WGS84 — formules Snyder/USGS (mêmes constantes que la version Flutter).
+const UTM_A = 6378137.0;
+const UTM_ECC2 = 0.00669438;
+const UTM_K0 = 0.9996;
+
+function normalizeLongitude(lon){
+  return (lon + 180) - Math.floor((lon + 180) / 360) * 360 - 180;
+}
+
+function utmZoneForLongitude(lon){
+  const l = normalizeLongitude(lon);
+  return Math.floor((l + 180) / 6) + 1;
+}
+
+function toUTM(lat, lon){
+  const lonN = normalizeLongitude(lon);
+  const latRad = deg2rad(lat);
+  const lonRad = deg2rad(lonN);
+  const zone = utmZoneForLongitude(lonN);
+  const lonOriginRad = deg2rad((zone - 1) * 6 - 180 + 3);
+  const eccPrime2 = UTM_ECC2 / (1 - UTM_ECC2);
+
+  const sinLat = Math.sin(latRad), cosLat = Math.cos(latRad), tanLat = Math.tan(latRad);
+  const N = UTM_A / Math.sqrt(1 - UTM_ECC2 * sinLat * sinLat);
+  const T = tanLat * tanLat;
+  const C = eccPrime2 * cosLat * cosLat;
+  const A = cosLat * (lonRad - lonOriginRad);
+
+  const M = UTM_A * (
+      (1 - UTM_ECC2/4 - 3*UTM_ECC2*UTM_ECC2/64 - 5*Math.pow(UTM_ECC2,3)/256) * latRad
+    - (3*UTM_ECC2/8 + 3*UTM_ECC2*UTM_ECC2/32 + 45*Math.pow(UTM_ECC2,3)/1024) * Math.sin(2*latRad)
+    + (15*UTM_ECC2*UTM_ECC2/256 + 45*Math.pow(UTM_ECC2,3)/1024) * Math.sin(4*latRad)
+    - (35*Math.pow(UTM_ECC2,3)/3072) * Math.sin(6*latRad)
+  );
+
+  let easting = UTM_K0 * N * (A + (1-T+C)*Math.pow(A,3)/6
+      + (5-18*T+T*T+72*C-58*eccPrime2)*Math.pow(A,5)/120) + 500000.0;
+
+  let northing = UTM_K0 * (M + N*tanLat*(Math.pow(A,2)/2
+      + (5-T+9*C+4*C*C)*Math.pow(A,4)/24
+      + (61-58*T+T*T+600*C-330*eccPrime2)*Math.pow(A,6)/720));
+
+  const hemisphere = lat >= 0 ? "N" : "S";
+  if (lat < 0) northing += 10000000.0;
+
+  return { zone, hemisphere, easting, northing };
+}
+
+function formatUTM(u){
+  return u.zone + u.hemisphere + " " + Math.round(u.easting) + "mE " + Math.round(u.northing) + "mN";
+}
+
+/* ======================================================================
+   DISTANCE / AZIMUT (Haversine + relèvement initial)
+   ====================================================================== */
+const EARTH_R = 6371000.0;
+
+function distanceMeters(lat1, lon1, lat2, lon2){
+  const p1 = deg2rad(lat1), p2 = deg2rad(lat2);
+  const dPhi = deg2rad(lat2 - lat1), dLambda = deg2rad(lon2 - lon1);
+  const a = Math.sin(dPhi/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dLambda/2)**2;
+  return EARTH_R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function initialBearingDegrees(lat1, lon1, lat2, lon2){
+  const p1 = deg2rad(lat1), p2 = deg2rad(lat2), dLambda = deg2rad(lon2 - lon1);
+  const y = Math.sin(dLambda) * Math.cos(p2);
+  const x = Math.cos(p1)*Math.sin(p2) - Math.sin(p1)*Math.cos(p2)*Math.cos(dLambda);
+  return (rad2deg(Math.atan2(y, x)) + 360) % 360;
+}
+
+function distanceLabel(m){ return m >= 1000 ? (m/1000).toFixed(1) + " km" : Math.round(m) + " m"; }
+function azimuthLabel(deg){ return Math.round(deg) + "°"; }
+
+function nearestEmitters(userLat, userLon, count = 6){
+  return EMITTERS
+    .map(e => ({
+      emitter: e,
+      distanceMeters: distanceMeters(userLat, userLon, e.lat, e.lon),
+      azimuthDegrees: initialBearingDegrees(userLat, userLon, e.lat, e.lon),
+    }))
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, count);
+}
+
+/* ======================================================================
+   ÉTAT + DOM
+   ====================================================================== */
+const el = id => document.getElementById(id);
+let currentPosition = null;   // {latitude, longitude, accuracy}
+let currentResults = [];
+
+el("dataset-pill").textContent = EMITTERS.length + " émetteurs chargés";
+
+/* ---------- Écran position ---------- */
+function renderPosition(pos){
+  const { latitude, longitude, accuracy } = pos;
+  const dmsLat = toDMS(latitude, true);
+  const dmsLon = toDMS(longitude, false);
+  const utm = toUTM(latitude, longitude);
+
+  el("position-body").innerHTML = `
+    <div class="readout">
+      <div class="readout-row">
+        <span class="label">Degrés déc.</span>
+        <span class="value">${formatDD(latitude)}, ${formatDD(longitude)}</span>
+      </div>
+      <div class="readout-row">
+        <span class="label">DMS</span>
+        <span class="value">${dmsLat}, ${dmsLon}</span>
+      </div>
+      <div class="readout-row">
+        <span class="label">UTM (WGS84)</span>
+        <span class="value">${formatUTM(utm)}</span>
+      </div>
+    </div>
+    ${accuracy != null ? `<div class="accuracy">Précision : ±${Math.round(accuracy)} m</div>` : ""}
+  `;
+}
+
+function setStatus(kind, text){
+  const dot = el("status-dot");
+  dot.className = "dot" + (kind === "live" ? " live" : kind === "error" ? " error" : "");
+  el("status-text").textContent = text;
+}
+
+function showLocationError(message, opts){
+  opts = opts || {};
+  el("position-card").classList.add("error-card");
+  setStatus("error", "Localisation indisponible");
+  el("position-body").innerHTML = `<p class="msg">${message}</p>`;
+  if (opts.retry){
+    el("position-body").innerHTML += `<button class="btn btn-secondary" id="btn-retry-loc">Réessayer</button>`;
+    el("btn-retry-loc").addEventListener("click", startGeolocation);
+  }
+  el("btn-nearest").disabled = true;
+}
+
+function startGeolocation(){
+  el("position-card").classList.remove("error-card");
+  setStatus("", "Recherche du signal GPS…");
+
+  if (!("geolocation" in navigator)){
+    showLocationError("Ce navigateur ne prend pas en charge la géolocalisation.");
+    return;
+  }
+
+  navigator.geolocation.watchPosition(
+    (pos) => {
+      currentPosition = pos.coords;
+      setStatus("live", "Position à jour");
+      renderPosition(pos.coords);
+      el("btn-nearest").disabled = EMITTERS.length === 0;
+    },
+    (err) => {
+      let message = "Erreur de localisation : " + err.message;
+      if (err.code === err.PERMISSION_DENIED){
+        message = "La permission de localisation a été refusée. Autorisez-la dans les réglages du navigateur pour cette page.";
+      } else if (err.code === err.POSITION_UNAVAILABLE){
+        message = "Position indisponible pour le moment (pas de signal GPS). Sortez à ciel ouvert et réessayez.";
+      } else if (err.code === err.TIMEOUT){
+        message = "La recherche de signal GPS a expiré. Réessayez.";
+      }
+      showLocationError(message, { retry: true });
+    },
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
+  );
+}
+
+/* ---------- Navigation entre écrans ---------- */
+el("btn-nearest").addEventListener("click", () => {
+  if (!currentPosition) return;
+  currentResults = nearestEmitters(currentPosition.latitude, currentPosition.longitude, 6);
+  el("position-screen").style.display = "none";
+  el("nearest-screen").style.display = "block";
+  renderDiagram();
+  renderList();
+});
+
+el("btn-back").addEventListener("click", () => {
+  el("nearest-screen").style.display = "none";
+  el("position-screen").style.display = "block";
+});
+
+el("toggle-diagram").addEventListener("click", () => switchView("diagram"));
+el("toggle-list").addEventListener("click", () => switchView("list"));
+
+function switchView(which){
+  el("toggle-diagram").classList.toggle("active", which === "diagram");
+  el("toggle-list").classList.toggle("active", which === "list");
+  el("diagram-view").style.display = which === "diagram" ? "block" : "none";
+  el("list-view").style.display = which === "list" ? "grid" : "none";
+}
+
+/* ---------- Diagramme polaire (SVG) ---------- */
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs){
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function renderDiagram(){
+  const svg = el("diagram-svg");
+  svg.innerHTML = "";
+  if (currentResults.length === 0) return;
+
+  const size = 320, center = size / 2, radius = center - 46;
+  const maxDistance = Math.max(...currentResults.map(r => r.distanceMeters)) * 1.15;
+
+  // anneaux de repère
+  [0.33, 0.66, 1.0].forEach(f => {
+    svg.appendChild(svgEl("circle", { class: "ring", cx: center, cy: center, r: radius * f }));
+  });
+  // échelle : distance de l'anneau extérieur
+  svg.appendChild(svgEl("text", {
+    class: "scale-label", x: center + 4, y: center - radius - 4,
+  })).textContent = distanceLabel(maxDistance);
+
+  // points cardinaux
+  const cardinals = { 0: "N", 90: "E", 180: "S", 270: "O" };
+  Object.entries(cardinals).forEach(([angleDeg, label]) => {
+    const a = (angleDeg - 90) * Math.PI / 180;
+    const x = center + (radius + 16) * Math.cos(a);
+    const y = center + (radius + 16) * Math.sin(a);
+    const t = svgEl("text", { class: "cardinal", x, y, "text-anchor": "middle", "dominant-baseline": "middle" });
+    t.textContent = label;
+    svg.appendChild(t);
+  });
+
+  // utilisateur au centre
+  svg.appendChild(svgEl("circle", { class: "user-ring", cx: center, cy: center, r: 11 }));
+  svg.appendChild(svgEl("circle", { class: "user-dot", cx: center, cy: center, r: 5 }));
+
+  currentResults.forEach((r, i) => {
+    const normR = Math.min(r.distanceMeters / maxDistance, 1) * radius;
+    const a = (r.azimuthDegrees - 90) * Math.PI / 180;
+    const x = center + normR * Math.cos(a);
+    const y = center + normR * Math.sin(a);
+
+    const g = svgEl("g", {
+      class: "emitter-group",
+      tabindex: "0", role: "button",
+      "aria-label": `${r.emitter.name}, ${distanceLabel(r.distanceMeters)}, azimut ${azimuthLabel(r.azimuthDegrees)}`,
+    });
+    g.style.cursor = "pointer";
+    g.addEventListener("click", () => openSheet(r));
+    g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") openSheet(r); });
+
+    g.appendChild(svgEl("circle", { class: "emitter-dot", cx: x, cy: y, r: 11 }));
+    const rankText = svgEl("text", {
+      class: "emitter-rank", x, y: y + 1, "text-anchor": "middle", "dominant-baseline": "central",
+    });
+    rankText.textContent = String(i + 1);
+    g.appendChild(rankText);
+    svg.appendChild(g);
+  });
+}
+
+function escapeXml(s){
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&apos;" }[c]));
+}
+
+/* ---------- Vue liste ---------- */
+function renderList(){
+  const container = el("list-view");
+  container.innerHTML = "";
+  currentResults.forEach((r, i) => {
+    const row = document.createElement("button");
+    row.className = "list-row";
+    row.innerHTML = `
+      <span class="list-rank mono">${i+1}</span>
+      <span>
+        <span class="list-name">${escapeXml(r.emitter.name)}</span>
+        <div class="list-sub">${escapeXml([r.emitter.reseau, r.emitter.massif].filter(Boolean).join(" · "))}</div>
+      </span>
+      <span class="list-metrics">${distanceLabel(r.distanceMeters)}<br>${azimuthLabel(r.azimuthDegrees)}</span>
+    `;
+    row.addEventListener("click", () => openSheet(r));
+    container.appendChild(row);
+  });
+}
+
+/* ---------- Fiche détail ---------- */
+function openSheet(r){
+  const e = r.emitter;
+  el("sheet-title").textContent = e.name;
+  const tags = [];
+  if (e.reseau) tags.push("Réseau " + e.reseau);
+  if (e.massif) tags.push("Massif " + e.massif);
+  el("sheet-tags").innerHTML = tags.map(t => `<span class="tag">${escapeXml(t)}</span>`).join("");
+
+  const rows = [
+    ["Distance", distanceLabel(r.distanceMeters)],
+    ["Azimut", azimuthLabel(r.azimuthDegrees) + " depuis vous"],
+  ];
+  if (e.altitude != null) rows.push(["Altitude", Math.round(e.altitude) + " m"]);
+  if (e.code) rows.push(["Code", e.code]);
+  el("sheet-grid").innerHTML = rows.map(([label, value]) => `
+    <div class="sheet-row">
+      <span class="label">${escapeXml(label)}</span>
+      <span class="value">${escapeXml(value)}</span>
+    </div>
+  `).join("");
+
+  el("backdrop").classList.add("open");
+  el("sheet").classList.add("open");
+}
+function closeSheet(){
+  el("backdrop").classList.remove("open");
+  el("sheet").classList.remove("open");
+}
+el("backdrop").addEventListener("click", closeSheet);
+
+/* ---------- Mise en cache hors-ligne (service worker) ---------- */
+if ("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // L'appli continue de fonctionner sans mise en cache si l'enregistrement échoue
+      // (par ex. navigateur trop ancien) — seul le mode hors-ligne "à froid" est perdu.
+    });
+  });
+}
+
+/* ---------- Démarrage ---------- */
+startGeolocation();
+</script>
+</body>
+</html>
