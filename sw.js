@@ -6,7 +6,7 @@
 // même (voir index.html) — ce service worker sert uniquement à ce que le
 // PREMIER chargement (avec réseau) reste disponible ensuite hors-ligne.
 
-const CACHE_NAME = "gra-locator-v3";
+const CACHE_NAME = "gra-locator-v4";
 const CORE_ASSETS = [
   "./",
   "./index.html",

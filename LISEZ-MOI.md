@@ -21,10 +21,15 @@ d'utilisateur. Gratuit.
 
 1. Sur la page du dépôt tout neuf, cliquez **"uploading an existing file"**
    (ou le bouton "Add file" → "Upload files").
-2. Ouvrez ce dossier sur votre ordinateur et **glissez-déposez les 6 fichiers**
-   (`index.html`, `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`,
-   `icon-maskable-512.png`) dans la zone de dépôt.
+2. Ouvrez ce dossier sur votre ordinateur et **glissez-déposez tous les
+   fichiers et le dossier `images`** : `index.html`, `manifest.json`, `sw.js`,
+   `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `club-logo.png`,
+   `leaflet.js`, `leaflet.css`, et le dossier `images` (glissez-le tel quel,
+   GitHub conserve la structure des dossiers).
 3. En bas de page, cliquez **"Commit changes"**.
+
+Ces trois derniers fichiers (`leaflet.js`, `leaflet.css`, `images/`) font
+fonctionner le fond de carte sous le diagramme.
 
 ## Étape 4 — Activer GitHub Pages
 
@@ -50,6 +55,12 @@ avec réseau.
 3. Fermez et rouvrez la page (ou l'icône, si vous l'avez ajoutée à l'écran
    d'accueil via le menu ⋮ de Chrome → "Ajouter à l'écran d'accueil").
 4. Elle doit s'ouvrir et fonctionner normalement, sans réseau.
+
+Note sur le fond de carte : contrairement au reste de l'appli, les tuiles de
+carte ne sont pas embarquées (ce serait beaucoup de données). Une zone déjà
+affichée une fois avec du réseau reste ensuite visible hors-ligne ; une zone
+jamais visitée en ligne affichera juste les repères sans fond de carte. Le
+diagramme polaire, lui, fonctionne toujours, avec ou sans fond de carte.
 
 ## Mettre à jour les données plus tard
 

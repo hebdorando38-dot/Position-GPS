@@ -151,22 +151,28 @@
   .dot.error{ background:var(--danger); }
   .status-text{ font-size:13px; color:var(--ink-muted); }
 
-  .readout{ margin-top:12px; display:grid; gap:14px; }
+  .readout{ margin-top:12px; display:grid; gap:18px; }
   .readout-row{
-    padding-bottom:12px;
+    padding-bottom:16px;
     border-bottom:1px solid var(--line);
   }
   .readout-row:last-child{ border-bottom:none; padding-bottom:0; }
   .readout-row .value{
-    display:block; margin-top:3px;
+    display:block; margin-top:6px;
     font-family:var(--font-mono); font-weight:700;
-    font-size:clamp(21px, 6.2vw, 27px);
-    line-height:1.25;
+    font-size:clamp(24px, 8vw, 34px);
+    line-height:1.35;
     font-variant-numeric:tabular-nums;
     word-break:break-word;
     color:var(--ink);
   }
-  .accuracy{ font-size:12px; color:var(--ink-muted); margin-top:4px; }
+  .coord-line{ display:block; }
+  .coord-line + .coord-line{ margin-top:2px; }
+  .coord-axis{
+    font-family:var(--font-display); font-size:0.38em; font-weight:800;
+    color:var(--ink-muted); letter-spacing:0.05em; margin-right:0.65em;
+  }
+  .accuracy{ font-size:12px; color:var(--ink-muted); margin-top:8px; }
 
   .btn{
     appearance:none; border:none; cursor:pointer;
@@ -188,11 +194,16 @@
   #nearest-screen{ display:none; }
   .screen-header{ display:flex; align-items:center; gap:10px; padding:16px 0 4px; }
   .back-btn{
-    background:none; border:none; cursor:pointer; color:var(--ink);
-    font-family:var(--font-display); font-weight:700; font-size:14px;
-    padding:6px 4px; display:flex; align-items:center; gap:4px;
+    appearance:none; cursor:pointer; color:var(--ink);
+    background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+    font-family:var(--font-display); text-transform:uppercase; letter-spacing:0.06em;
+    font-weight:700; font-size:12px;
+    padding:9px 13px; display:inline-flex; align-items:center; gap:6px; flex:none;
   }
+  .back-btn:focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
+  .back-btn:active{ background:var(--surface); }
   .screen-header h2{ font-family:var(--font-display); font-size:16px; font-weight:800; margin:0; flex:1; letter-spacing:0.02em; }
+  .screen-subtitle{ font-size:12.5px; color:var(--ink-muted); padding:0 0 10px; }
 
   .view-toggle{ display:flex; gap:6px; background:var(--surface-2); padding:4px; border-radius:8px; margin-top:12px; }
   .view-toggle button{
@@ -236,6 +247,20 @@
     width:14px; height:14px; border-radius:50%;
     background:var(--accent-2); border:2px solid var(--surface);
     box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+
+  /* ---------- Écran carte interactive ---------- */
+  #explore-screen{ display:none; }
+  .explore-hint{ font-size:13px; color:var(--ink-muted); margin:2px 0 12px; }
+  #explore-map{
+    height:58vh; min-height:320px;
+    border-radius:var(--radius); border:1px solid var(--line);
+    overflow:hidden; background:var(--surface-2);
+  }
+  .explore-selected{ margin-top:14px; }
+  .explore-selected .value{
+    font-family:var(--font-mono); font-weight:700; font-size:16px;
+    margin-top:4px; display:block;
   }
 
   /* ---------- List view ---------- */
@@ -306,8 +331,28 @@
       <div id="position-body"></div>
     </div>
 
-    <div style="margin-top:16px;">
+    <div style="margin-top:16px; display:grid; gap:10px;">
       <button class="btn btn-primary" id="btn-nearest" disabled>Voir les 6 émetteurs proches</button>
+      <button class="btn btn-secondary" id="btn-explore-map">Explorer sur la carte</button>
+    </div>
+  </div>
+
+  <!-- ===== Écran carte interactive ===== -->
+  <div id="explore-screen">
+    <div class="screen-header">
+      <button class="back-btn" id="btn-back-explore">← Retour</button>
+      <h2>Explorer la carte</h2>
+    </div>
+    <p class="explore-hint">Touchez un point sur la carte pour voir les 6 émetteurs les plus proches de cet endroit.</p>
+
+    <div id="explore-map"></div>
+
+    <div class="card explore-selected" id="explore-selected" style="display:none;">
+      <span class="label">Point sélectionné</span>
+      <span class="value mono" id="explore-selected-coords"></span>
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-primary" id="btn-explore-nearest" disabled>Voir les 6 émetteurs proches</button>
     </div>
   </div>
 
@@ -317,6 +362,7 @@
       <button class="back-btn" id="btn-back">← Retour</button>
       <h2>6 émetteurs les plus proches</h2>
     </div>
+    <div class="screen-subtitle" id="nearest-subtitle"></div>
 
     <div class="view-toggle">
       <button id="toggle-diagram" class="active">Diagramme</button>
@@ -467,8 +513,11 @@ function nearestEmitters(userLat, userLon, count = 6){
    ÉTAT + DOM
    ====================================================================== */
 const el = id => document.getElementById(id);
-let currentPosition = null;   // {latitude, longitude, accuracy}
+let currentPosition = null;   // {latitude, longitude, accuracy} — position GPS réelle
 let currentResults = [];
+let referencePoint = null;    // {latitude, longitude} utilisé pour le calcul en cours (GPS ou point choisi sur la carte)
+let referenceIsGPS = true;    // true : référence = position GPS ; false : point choisi sur la carte
+let selectedPoint = null;     // dernier point touché sur la carte interactive
 
 el("dataset-pill").textContent = EMITTERS.length + " émetteurs chargés";
 
@@ -483,15 +532,24 @@ function renderPosition(pos){
     <div class="readout">
       <div class="readout-row">
         <span class="label">Degrés déc.</span>
-        <span class="value">${formatDD(latitude)}, ${formatDD(longitude)}</span>
+        <span class="value">
+          <span class="coord-line"><span class="coord-axis">Lat</span>${formatDD(latitude)}</span>
+          <span class="coord-line"><span class="coord-axis">Lon</span>${formatDD(longitude)}</span>
+        </span>
       </div>
       <div class="readout-row">
         <span class="label">DMS</span>
-        <span class="value">${dmsLat}, ${dmsLon}</span>
+        <span class="value">
+          <span class="coord-line"><span class="coord-axis">Lat</span>${dmsLat}</span>
+          <span class="coord-line"><span class="coord-axis">Lon</span>${dmsLon}</span>
+        </span>
       </div>
       <div class="readout-row">
         <span class="label">UTM (WGS84)</span>
-        <span class="value">${formatUTM(utm)}</span>
+        <span class="value">
+          <span class="coord-line"><span class="coord-axis">Zone</span>${utm.zone}${utm.hemisphere} · ${Math.round(utm.easting)} mE</span>
+          <span class="coord-line"><span class="coord-axis">Nord</span>${Math.round(utm.northing)} mN</span>
+        </span>
       </div>
     </div>
     ${accuracy != null ? `<div class="accuracy">Précision : ±${Math.round(accuracy)} m</div>` : ""}
@@ -548,20 +606,99 @@ function startGeolocation(){
 }
 
 /* ---------- Navigation entre écrans ---------- */
-el("btn-nearest").addEventListener("click", () => {
-  if (!currentPosition) return;
-  currentResults = nearestEmitters(currentPosition.latitude, currentPosition.longitude, 6);
+function updateNearestSubtitle(){
+  el("nearest-subtitle").textContent = referenceIsGPS
+    ? "Autour de votre position GPS actuelle"
+    : "Autour du point choisi sur la carte";
+}
+
+function showNearestScreen(){
   el("position-screen").style.display = "none";
+  el("explore-screen").style.display = "none";
   el("nearest-screen").style.display = "block";
+  updateNearestSubtitle();
   renderDiagram();
   renderList();
   renderMap();
   setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 50);
+}
+
+el("btn-nearest").addEventListener("click", () => {
+  if (!currentPosition) return;
+  referencePoint = { latitude: currentPosition.latitude, longitude: currentPosition.longitude };
+  referenceIsGPS = true;
+  currentResults = nearestEmitters(referencePoint.latitude, referencePoint.longitude, 6);
+  showNearestScreen();
 });
 
 el("btn-back").addEventListener("click", () => {
   el("nearest-screen").style.display = "none";
   el("position-screen").style.display = "block";
+});
+
+/* ---------- Carte interactive (toucher un point -> émetteurs proches) ---------- */
+let exploreMapInstance = null;
+let exploreMarkersLayer = null;
+let exploreSelectedMarker = null;
+
+function initExploreMap(){
+  if (exploreMapInstance) return;
+  exploreMapInstance = L.map("explore-map", { attributionControl: true, zoomControl: true });
+  const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 17,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributeurs',
+  }).addTo(exploreMapInstance);
+  tiles.on("tileerror", (e) => { if (e.tile) e.tile.style.visibility = "hidden"; });
+
+  exploreMarkersLayer = L.layerGroup().addTo(exploreMapInstance);
+  EMITTERS.forEach(e => {
+    L.marker([e.lat, e.lon], { icon: emitterDivIcon() })
+      .addTo(exploreMarkersLayer)
+      .bindTooltip(codeOfEmitter(e), { permanent: false, direction: "top", offset: [0, -8] })
+      // Toucher directement un émetteur sélectionne aussi son point exact
+      // (sans ça, le clic serait absorbé par le repère sans rien déclencher).
+      .on("click", (ev) => selectExplorePoint(ev.latlng));
+  });
+
+  const bounds = L.latLngBounds(EMITTERS.map(e => [e.lat, e.lon]));
+  if (currentPosition) bounds.extend([currentPosition.latitude, currentPosition.longitude]);
+  exploreMapInstance.fitBounds(bounds, { padding: [20, 20] });
+
+  exploreMapInstance.on("click", (e) => selectExplorePoint(e.latlng));
+}
+
+function selectExplorePoint(latlng){
+  selectedPoint = { latitude: latlng.lat, longitude: latlng.lng };
+  if (exploreSelectedMarker){
+    exploreSelectedMarker.setLatLng(latlng);
+  } else {
+    exploreSelectedMarker = L.marker(latlng, { icon: userDivIcon(), keyboard: false })
+      .addTo(exploreMapInstance)
+      .bindTooltip("Point sélectionné", { permanent: false });
+  }
+  el("explore-selected-coords").textContent = formatDD(latlng.lat) + ", " + formatDD(latlng.lng);
+  el("explore-selected").style.display = "block";
+  el("btn-explore-nearest").disabled = false;
+}
+
+el("btn-explore-map").addEventListener("click", () => {
+  el("position-screen").style.display = "none";
+  el("explore-screen").style.display = "block";
+  initExploreMap();
+  setTimeout(() => { if (exploreMapInstance) exploreMapInstance.invalidateSize(); }, 50);
+});
+
+el("btn-back-explore").addEventListener("click", () => {
+  el("explore-screen").style.display = "none";
+  el("position-screen").style.display = "block";
+});
+
+el("btn-explore-nearest").addEventListener("click", () => {
+  if (!selectedPoint) return;
+  referencePoint = { latitude: selectedPoint.latitude, longitude: selectedPoint.longitude };
+  referenceIsGPS = false;
+  currentResults = nearestEmitters(referencePoint.latitude, referencePoint.longitude, 6);
+  showNearestScreen();
 });
 
 el("toggle-diagram").addEventListener("click", () => switchView("diagram"));
@@ -753,7 +890,7 @@ function emitterDivIcon(){
 }
 
 function renderMap(){
-  if (typeof L === "undefined" || !currentPosition) return;
+  if (typeof L === "undefined" || !referencePoint) return;
 
   if (!mapInstance){
     mapInstance = L.map("map", { attributionControl: true, zoomControl: true });
@@ -769,10 +906,10 @@ function renderMap(){
 
   mapMarkersLayer.clearLayers();
 
-  const userLatLng = [currentPosition.latitude, currentPosition.longitude];
+  const userLatLng = [referencePoint.latitude, referencePoint.longitude];
   L.marker(userLatLng, { icon: userDivIcon(), keyboard: false })
     .addTo(mapMarkersLayer)
-    .bindTooltip("Vous", { permanent: false });
+    .bindTooltip(referenceIsGPS ? "Vous" : "Point sélectionné", { permanent: false });
 
   const bounds = L.latLngBounds([userLatLng]);
   currentResults.forEach(r => {
@@ -800,7 +937,7 @@ function openSheet(r){
 
   const rows = [
     ["Distance", distanceLabel(r.distanceMeters)],
-    ["Azimut", azimuthLabel(r.azimuthDegrees) + " depuis vous"],
+    ["Azimut", azimuthLabel(r.azimuthDegrees) + (referenceIsGPS ? " depuis vous" : " depuis le point choisi")],
   ];
   if (e.altitude != null) rows.push(["Altitude", Math.round(e.altitude) + " m"]);
   if (e.code) rows.push(["Code", e.code]);
