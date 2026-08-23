@@ -3,30 +3,33 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>GRA Locator</title>
-<meta name="description" content="Position GPS et 6 émetteurs radio les plus proches du Grand Réseau des Alpes — application 100% hors-ligne." />
-<meta name="theme-color" content="#D65A1F" />
+<title>GPS - GRA</title>
+<meta name="description" content="Position GPS et 6 émetteurs radio les plus proches du Grand Réseau des Alpes — Club Alpin Français Grenoble Isère. Application 100% hors-ligne." />
+<meta name="theme-color" content="#0091C2" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="GRA Locator" />
+<meta name="apple-mobile-web-app-title" content="GPS - GRA" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="stylesheet" href="leaflet.css" />
 <style>
   /* ---------- Design tokens ---------- */
   :root{
-    --bg:#F1F2EC;
+    /* Palette dérivée du logo du Club Alpin Français Grenoble Isère */
+    --bg:#F2F8FA;
     --surface:#FFFFFF;
-    --surface-2:#E9EBE3;
-    --ink:#1B211F;
-    --ink-muted:#5B645F;
-    --line:#D6D9CF;
-    --accent:#D65A1F;
+    --surface-2:#E3F0F4;
+    --ink:#1E2C33;
+    --ink-muted:#5C6E77;
+    --line:#D2E3E8;
+    --accent:#0091C2;
     --accent-ink:#FFFFFF;
-    --accent-2:#2E6A57;
-    --accent-2-ink:#FFFFFF;
-    --danger:#B23A2E;
+    --accent-2:#39B6DA;
+    --accent-2-ink:#08303D;
+    --brand-red:#C8331F;
+    --danger:#C8331F;
     --danger-ink:#FFFFFF;
     --radius:10px;
     --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -35,33 +38,35 @@
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --bg:#14181A;
-      --surface:#1C211E;
-      --surface-2:#242B27;
-      --ink:#EDEAE1;
-      --ink-muted:#9AA39C;
-      --line:#333B36;
-      --accent:#FF7A3D;
-      --accent-ink:#1B140F;
-      --accent-2:#59B398;
-      --accent-2-ink:#0E211B;
-      --danger:#FF6B5C;
-      --danger-ink:#2A0805;
+      --bg:#0E1B21;
+      --surface:#152329;
+      --surface-2:#1C2E35;
+      --ink:#E7F1F4;
+      --ink-muted:#93A7AF;
+      --line:#283A41;
+      --accent:#33B6E0;
+      --accent-ink:#052129;
+      --accent-2:#7FD3EC;
+      --accent-2-ink:#052129;
+      --brand-red:#FF7A61;
+      --danger:#FF7A61;
+      --danger-ink:#330A02;
     }
   }
   :root[data-theme="dark"]{
-    --bg:#14181A;
-    --surface:#1C211E;
-    --surface-2:#242B27;
-    --ink:#EDEAE1;
-    --ink-muted:#9AA39C;
-    --line:#333B36;
-    --accent:#FF7A3D;
-    --accent-ink:#1B140F;
-    --accent-2:#59B398;
-    --accent-2-ink:#0E211B;
-    --danger:#FF6B5C;
-    --danger-ink:#2A0805;
+    --bg:#0E1B21;
+    --surface:#152329;
+    --surface-2:#1C2E35;
+    --ink:#E7F1F4;
+    --ink-muted:#93A7AF;
+    --line:#283A41;
+    --accent:#33B6E0;
+    --accent-ink:#052129;
+    --accent-2:#7FD3EC;
+    --accent-2-ink:#052129;
+    --brand-red:#FF7A61;
+    --danger:#FF7A61;
+    --danger-ink:#330A02;
   }
 
   *{ box-sizing:border-box; }
@@ -95,23 +100,40 @@
   .topbar{
     position:sticky; top:0; z-index:5;
     background:var(--bg);
-    padding:16px 0 10px;
+    padding:14px 0 10px;
     border-bottom:1px solid var(--line);
-    display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
   }
+  .topbar-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .club-logo{
+    flex:none; width:38px; height:38px; border-radius:9px;
+    background:#FFFFFF; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    padding:3px; box-shadow:0 1px 2px rgba(0,0,0,0.06);
+  }
+  .club-logo img{ width:100%; height:100%; object-fit:contain; display:block; }
+  .topbar-titles{ min-width:0; }
   .topbar h1{
     font-family:var(--font-display);
-    font-size:22px;
+    font-size:21px;
     font-weight:800;
-    letter-spacing:0.02em;
+    letter-spacing:0.01em;
     margin:0;
+    white-space:nowrap;
   }
   .topbar h1 .accent{ color:var(--accent); }
+  .topbar h1 .dash{ color:var(--ink-muted); font-weight:500; }
+  .club-name{
+    font-size:10.5px; color:var(--ink-muted);
+    text-transform:uppercase; letter-spacing:0.05em; font-weight:700;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
   .dataset-pill{
     font-family:var(--font-mono);
     font-size:11px;
     color:var(--ink-muted);
     white-space:nowrap;
+    flex:none;
   }
 
   .card{
@@ -129,19 +151,22 @@
   .dot.error{ background:var(--danger); }
   .status-text{ font-size:13px; color:var(--ink-muted); }
 
-  .readout{ margin-top:14px; display:grid; gap:12px; }
+  .readout{ margin-top:12px; display:grid; gap:14px; }
   .readout-row{
-    display:grid;
-    grid-template-columns: 108px 1fr;
-    gap:10px;
-    align-items:start;
-    padding-bottom:10px;
+    padding-bottom:12px;
     border-bottom:1px solid var(--line);
   }
   .readout-row:last-child{ border-bottom:none; padding-bottom:0; }
-  .readout-row .label{ padding-top:2px; }
-  .readout-row .value{ font-family:var(--font-mono); font-size:15px; font-variant-numeric:tabular-nums; word-break:break-word; }
-  .accuracy{ font-size:12px; color:var(--ink-muted); margin-top:2px; }
+  .readout-row .value{
+    display:block; margin-top:3px;
+    font-family:var(--font-mono); font-weight:700;
+    font-size:clamp(21px, 6.2vw, 27px);
+    line-height:1.25;
+    font-variant-numeric:tabular-nums;
+    word-break:break-word;
+    color:var(--ink);
+  }
+  .accuracy{ font-size:12px; color:var(--ink-muted); margin-top:4px; }
 
   .btn{
     appearance:none; border:none; cursor:pointer;
@@ -179,7 +204,7 @@
 
   /* ---------- Polar diagram ---------- */
   .diagram-wrap{ margin-top:16px; }
-  .diagram-wrap svg{ width:100%; height:auto; display:block; }
+  #diagram-svg{ width:100%; height:auto; display:block; }
   .ring{ fill:none; stroke:var(--line); stroke-width:1; }
   .spoke{ stroke:var(--line); stroke-width:1; }
   .cardinal{ font-family:var(--font-display); font-weight:800; font-size:12px; fill:var(--ink-muted); }
@@ -187,9 +212,31 @@
   .user-ring{ fill:none; stroke:var(--accent); stroke-width:2; opacity:0.35; }
   .emitter-dot{ fill:var(--accent-2); stroke:var(--surface); stroke-width:2; cursor:pointer; }
   .emitter-group:focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
-  .emitter-rank{ font-family:var(--font-display); font-weight:800; font-size:11px; fill:var(--accent-2-ink); pointer-events:none; }
+  .emitter-leader{ stroke:var(--ink-muted); stroke-width:1; opacity:0.55; }
+  .emitter-pill{ fill:var(--surface); stroke:var(--accent-2); stroke-width:1.25; }
+  .emitter-code{ font-family:var(--font-mono); font-weight:700; font-size:10.5px; fill:var(--ink); pointer-events:none; }
   .scale-label{ font-family:var(--font-mono); font-size:9px; fill:var(--ink-muted); }
   .diagram-hint{ font-size:12px; color:var(--ink-muted); text-align:center; margin-top:10px; }
+
+  /* ---------- Carte hors-ligne ---------- */
+  .map-wrap{ margin-top:14px; }
+  .map-wrap .map-label{ margin-bottom:6px; }
+  #map{
+    height:280px; border-radius:var(--radius); border:1px solid var(--line);
+    overflow:hidden; background:var(--surface-2);
+  }
+  .map-note{ font-size:11px; color:var(--ink-muted); margin-top:6px; }
+  .leaflet-div-icon{ background:transparent; border:none; }
+  .map-marker-user{
+    width:18px; height:18px; border-radius:50%;
+    background:var(--accent); border:3px solid var(--surface);
+    box-shadow:0 0 0 2px var(--accent);
+  }
+  .map-marker-emitter{
+    width:14px; height:14px; border-radius:50%;
+    background:var(--accent-2); border:2px solid var(--surface);
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
 
   /* ---------- List view ---------- */
   .list{ margin-top:16px; display:grid; gap:8px; }
@@ -239,7 +286,13 @@
 <div id="app">
 
   <div class="topbar">
-    <h1>GRA <span class="accent">Locator</span></h1>
+    <div class="topbar-left">
+      <span class="club-logo"><img src="club-logo.png" alt="Club Alpin Français Grenoble Isère" /></span>
+      <div class="topbar-titles">
+        <h1>GPS <span class="dash">-</span> <span class="accent">GRA</span></h1>
+        <div class="club-name">CAF Grenoble Isère</div>
+      </div>
+    </div>
     <div class="dataset-pill mono" id="dataset-pill">— émetteurs</div>
   </div>
 
@@ -272,7 +325,13 @@
 
     <div class="diagram-wrap" id="diagram-view">
       <svg id="diagram-svg" viewBox="0 0 320 320" role="img" aria-label="Diagramme polaire des émetteurs proches"></svg>
-      <p class="diagram-hint">Touchez un repère pour le détail — les numéros correspondent à l'onglet Liste.</p>
+      <p class="diagram-hint">Touchez un repère pour le détail.</p>
+
+      <div class="map-wrap">
+        <span class="label map-label">Carte</span>
+        <div id="map"></div>
+        <p class="map-note">Le fond de carte s'affiche s'il a déjà été chargé une fois avec du réseau sur cette zone ; sinon seuls les repères s'affichent.</p>
+      </div>
     </div>
 
     <div class="list" id="list-view" style="display:none;"></div>
@@ -289,6 +348,7 @@
   <div class="sheet-grid" id="sheet-grid"></div>
 </div>
 
+<script src="leaflet.js"></script>
 <script>
 "use strict";
 
@@ -495,6 +555,8 @@ el("btn-nearest").addEventListener("click", () => {
   el("nearest-screen").style.display = "block";
   renderDiagram();
   renderList();
+  renderMap();
+  setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 50);
 });
 
 el("btn-back").addEventListener("click", () => {
@@ -510,6 +572,9 @@ function switchView(which){
   el("toggle-list").classList.toggle("active", which === "list");
   el("diagram-view").style.display = which === "diagram" ? "block" : "none";
   el("list-view").style.display = which === "list" ? "grid" : "none";
+  if (which === "diagram" && mapInstance){
+    setTimeout(() => mapInstance.invalidateSize(), 50);
+  }
 }
 
 /* ---------- Diagramme polaire (SVG) ---------- */
@@ -552,12 +617,67 @@ function renderDiagram(){
   svg.appendChild(svgEl("circle", { class: "user-ring", cx: center, cy: center, r: 11 }));
   svg.appendChild(svgEl("circle", { class: "user-dot", cx: center, cy: center, r: 5 }));
 
-  currentResults.forEach((r, i) => {
+  // --- points (position exacte, non modifiée) + libellés (code émetteur) ---
+  const points = currentResults.map(r => {
     const normR = Math.min(r.distanceMeters / maxDistance, 1) * radius;
     const a = (r.azimuthDegrees - 90) * Math.PI / 180;
-    const x = center + normR * Math.cos(a);
-    const y = center + normR * Math.sin(a);
+    return {
+      r,
+      x: center + normR * Math.cos(a),
+      y: center + normR * Math.sin(a),
+    };
+  });
 
+  const codeOf = r => (r.emitter.code || r.emitter.name || "").trim();
+  const CHAR_W = 6.3, PAD_X = 10, LABEL_H = 19;
+  const labels = points.map(p => {
+    const text = codeOf(p.r);
+    const w = Math.max(28, text.length * CHAR_W + PAD_X * 2);
+    // ancrage initial : légèrement plus loin du centre que le point,
+    // dans la même direction (réduit le chevauchement de départ).
+    const dx = p.x - center, dy = p.y - center;
+    const len = Math.hypot(dx, dy) || 1;
+    const offset = 20;
+    return {
+      point: p, text, w, h: LABEL_H,
+      x: p.x + (dx / len) * offset,
+      y: p.y + (dy / len) * offset,
+    };
+  });
+
+  // décollision simple par répulsion itérative (6 éléments : coût négligeable)
+  const margin = 4;
+  for (let iter = 0; iter < 60; iter++) {
+    let moved = false;
+    for (let i = 0; i < labels.length; i++){
+      for (let j = i + 1; j < labels.length; j++){
+        const A = labels[i], B = labels[j];
+        const dx = B.x - A.x, dy = B.y - A.y;
+        const overlapX = (A.w + B.w) / 2 + margin - Math.abs(dx);
+        const overlapY = (A.h + B.h) / 2 + margin - Math.abs(dy);
+        if (overlapX > 0 && overlapY > 0){
+          moved = true;
+          if (overlapX < overlapY){
+            const push = (overlapX / 2) * (dx === 0 ? 1 : Math.sign(dx) || 1);
+            A.x -= push; B.x += push;
+          } else {
+            const push = (overlapY / 2) * (dy === 0 ? 1 : Math.sign(dy) || 1);
+            A.y -= push; B.y += push;
+          }
+        }
+      }
+    }
+    if (!moved) break;
+  }
+  // reste dans le cadre du SVG
+  labels.forEach(l => {
+    const halfW = l.w / 2 + 2, halfH = l.h / 2 + 2;
+    l.x = Math.min(size - halfW, Math.max(halfW, l.x));
+    l.y = Math.min(size - halfH, Math.max(halfH, l.y));
+  });
+
+  labels.forEach(l => {
+    const r = l.point.r;
     const g = svgEl("g", {
       class: "emitter-group",
       tabindex: "0", role: "button",
@@ -567,12 +687,27 @@ function renderDiagram(){
     g.addEventListener("click", () => openSheet(r));
     g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") openSheet(r); });
 
-    g.appendChild(svgEl("circle", { class: "emitter-dot", cx: x, cy: y, r: 11 }));
-    const rankText = svgEl("text", {
-      class: "emitter-rank", x, y: y + 1, "text-anchor": "middle", "dominant-baseline": "central",
+    // ligne de rappel si le libellé s'est éloigné du point
+    const dist = Math.hypot(l.x - l.point.x, l.y - l.point.y);
+    if (dist > 14){
+      g.appendChild(svgEl("line", {
+        class: "emitter-leader",
+        x1: l.point.x, y1: l.point.y, x2: l.x, y2: l.y,
+      }));
+    }
+
+    g.appendChild(svgEl("circle", { class: "emitter-dot", cx: l.point.x, cy: l.point.y, r: 5 }));
+
+    g.appendChild(svgEl("rect", {
+      class: "emitter-pill",
+      x: l.x - l.w/2, y: l.y - l.h/2, width: l.w, height: l.h, rx: l.h/2,
+    }));
+    const codeText = svgEl("text", {
+      class: "emitter-code", x: l.x, y: l.y + 1, "text-anchor": "middle", "dominant-baseline": "central",
     });
-    rankText.textContent = String(i + 1);
-    g.appendChild(rankText);
+    codeText.textContent = l.text;
+    g.appendChild(codeText);
+
     svg.appendChild(g);
   });
 }
@@ -600,6 +735,59 @@ function renderList(){
     container.appendChild(row);
   });
 }
+
+/* ---------- Carte hors-ligne (Leaflet + tuiles OpenStreetMap) ----------
+   Les tuiles ne sont PAS embarquées dans l'appli : la première fois
+   qu'une zone est affichée avec du réseau, le service worker les met en
+   cache (voir sw.js) et elles restent disponibles hors-ligne ensuite pour
+   cette zone. Sans réseau et sans tuile déjà vue, la carte reste vide
+   mais les repères (utilisateur + émetteurs) s'affichent quand même. */
+let mapInstance = null;
+let mapMarkersLayer = null;
+
+function userDivIcon(){
+  return L.divIcon({ className: "", html: '<div class="map-marker-user"></div>', iconSize: [18,18] });
+}
+function emitterDivIcon(){
+  return L.divIcon({ className: "", html: '<div class="map-marker-emitter"></div>', iconSize: [14,14] });
+}
+
+function renderMap(){
+  if (typeof L === "undefined" || !currentPosition) return;
+
+  if (!mapInstance){
+    mapInstance = L.map("map", { attributionControl: true, zoomControl: true });
+    const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 17,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributeurs',
+    }).addTo(mapInstance);
+    // Sans réseau (ou zone jamais mise en cache), masque proprement les
+    // tuiles en échec plutôt que d'afficher l'icône "image cassée".
+    tiles.on("tileerror", (e) => { if (e.tile) e.tile.style.visibility = "hidden"; });
+    mapMarkersLayer = L.layerGroup().addTo(mapInstance);
+  }
+
+  mapMarkersLayer.clearLayers();
+
+  const userLatLng = [currentPosition.latitude, currentPosition.longitude];
+  L.marker(userLatLng, { icon: userDivIcon(), keyboard: false })
+    .addTo(mapMarkersLayer)
+    .bindTooltip("Vous", { permanent: false });
+
+  const bounds = L.latLngBounds([userLatLng]);
+  currentResults.forEach(r => {
+    const ll = [r.emitter.lat, r.emitter.lon];
+    bounds.extend(ll);
+    L.marker(ll, { icon: emitterDivIcon() })
+      .addTo(mapMarkersLayer)
+      .bindTooltip(codeOfEmitter(r.emitter), { permanent: false, direction: "top", offset: [0, -8] })
+      .on("click", () => openSheet(r));
+  });
+
+  mapInstance.fitBounds(bounds, { padding: [28, 28], maxZoom: 13 });
+}
+
+function codeOfEmitter(e){ return (e.code || e.name || "").trim(); }
 
 /* ---------- Fiche détail ---------- */
 function openSheet(r){

@@ -1,12 +1,12 @@
 {
-  "name": "GRA Locator",
-  "short_name": "GRA Locator",
-  "description": "Position GPS et 6 émetteurs du Grand Réseau des Alpes les plus proches — 100% hors-ligne.",
+  "name": "GPS - GRA",
+  "short_name": "GPS - GRA",
+  "description": "Position GPS et 6 émetteurs du Grand Réseau des Alpes les plus proches — Club Alpin Français Grenoble Isère. 100% hors-ligne.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#F1F2EC",
-  "theme_color": "#D65A1F",
+  "background_color": "#F2F8FA",
+  "theme_color": "#0091C2",
   "lang": "fr",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
