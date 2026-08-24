@@ -403,6 +403,16 @@
     </div>
 
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Format des coordonnées</span>
+      <div id="coord-format-toggle" class="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+        <button data-format="dd" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">Degrés déc.</button>
+        <button data-format="dms" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">DMS</button>
+        <button data-format="utm" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">UTM</button>
+      </div>
+      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2.5">Jeu de coordonnées affiché dans l'onglet Position et dans Secours vitaux.</p>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Portée du radar</span>
       <div id="radar-range-toggle" class="grid grid-cols-5 gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
         <button data-range="2000" class="flex-1 rounded-lg py-2.5 text-[11px] font-bold transition">2 km</button>
@@ -712,9 +722,43 @@ el("position-body").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); copyCoordinates(); }
 });
 
+/* ---------- Format des coordonnées (Préférences) ----------
+   Un seul jeu de coordonnées à la fois — Degrés déc. / DMS / UTM — utilisé
+   à la fois par l'onglet Position et par "Secours vitaux". Réglage réparti
+   par défaut sur UTM au tout premier lancement (avant toute préférence
+   enregistrée), conformément à la demande. */
+const COORD_FORMAT_KEY = "gra-locator-coord-format";
+const COORD_FORMAT_OPTIONS = ["dd", "dms", "utm"];
+let coordFormat = "utm";
+function loadCoordFormatPreference(){
+  try {
+    const stored = localStorage.getItem(COORD_FORMAT_KEY);
+    if (COORD_FORMAT_OPTIONS.includes(stored)) coordFormat = stored;
+  } catch (err) {}
+}
+loadCoordFormatPreference();
+
+function coordFormatLabel(format){
+  return format === "dd" ? "Degrés déc." : format === "dms" ? "DMS" : "UTM";
+}
+
 /* ---------- Onglet Position ---------- */
 function coordRow(value, letter){
   return `<div class="coord-row"><span class="coord-val font-mono font-bold text-[clamp(23px,7.6vw,32px)] leading-tight">${value}</span>${letter ? `<span class="flex-none font-mono font-extrabold text-[clamp(17px,5.6vw,23px)] leading-tight text-brand-500 dark:text-brand-400">${letter}</span>` : ""}</div>`;
+}
+
+// Lignes de coordonnées pour le format actuellement choisi — réutilisées
+// telles quelles par l'onglet Position (coordRow) et par Secours vitaux
+// (emergencyCoordRow, voir plus bas) via leurs propres fonctions d'appel.
+function coordinateRowsHtml(format, latitude, longitude){
+  if (format === "dd"){
+    return coordRow(formatDDAbs(latitude), hemisphereOf(latitude, true)) + coordRow(formatDDAbs(longitude), hemisphereOf(longitude, false));
+  }
+  if (format === "dms"){
+    return coordRow(toDMSAbs(latitude), hemisphereOf(latitude, true)) + coordRow(toDMSAbs(longitude), hemisphereOf(longitude, false));
+  }
+  const utm = toUTM(latitude, longitude);
+  return coordRow(utm.zone + utm.hemisphere) + coordRow(Math.round(utm.easting) + " m", "E") + coordRow(Math.round(utm.northing) + " m", "N");
 }
 
 // Seuils de précision GPS typiques en usage rando/montagne.
@@ -732,28 +776,13 @@ const ACCURACY_STYLES = {
 
 function renderPosition(pos){
   const { latitude, longitude, accuracy } = pos;
-  const utm = toUTM(latitude, longitude);
   const tier = accuracyTier(accuracy);
   const badge = tier ? ACCURACY_STYLES[tier] : null;
 
   el("position-body").innerHTML = `
-    <div class="mt-3 grid gap-4">
-      <div class="pb-4 border-b border-slate-100 dark:border-slate-800">
-        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Degrés déc.</span>
-        ${coordRow(formatDDAbs(latitude), hemisphereOf(latitude, true))}
-        ${coordRow(formatDDAbs(longitude), hemisphereOf(longitude, false))}
-      </div>
-      <div class="pb-4 border-b border-slate-100 dark:border-slate-800">
-        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">DMS</span>
-        ${coordRow(toDMSAbs(latitude), hemisphereOf(latitude, true))}
-        ${coordRow(toDMSAbs(longitude), hemisphereOf(longitude, false))}
-      </div>
-      <div>
-        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">UTM</span>
-        ${coordRow(utm.zone + utm.hemisphere)}
-        ${coordRow(Math.round(utm.easting) + " m", "E")}
-        ${coordRow(Math.round(utm.northing) + " m", "N")}
-      </div>
+    <div class="mt-3">
+      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">${coordFormatLabel(coordFormat)}</span>
+      ${coordinateRowsHtml(coordFormat, latitude, longitude)}
     </div>
     ${badge != null && accuracy != null ? `
       <div class="mt-4 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-bold ${badge.classes}">
@@ -1181,6 +1210,23 @@ el("radar-range-toggle").addEventListener("click", (ev) => {
 });
 setRadarRange(RADAR_RANGE_M, false);
 
+/* ---------- Préférences : format des coordonnées (Position + Secours vitaux) ---------- */
+function setCoordFormat(format, persist){
+  coordFormat = format;
+  if (persist){ try { localStorage.setItem(COORD_FORMAT_KEY, format); } catch (err) {} }
+  paintSegment("coord-format-toggle", "format", format);
+  if (currentPosition){
+    renderPosition(currentPosition);
+    renderEmergencyPosition();
+  }
+}
+el("coord-format-toggle").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-format]");
+  if (!btn) return;
+  setCoordFormat(btn.dataset.format, true);
+});
+setCoordFormat(coordFormat, false);
+
 /* ======================================================================
    URGENCES & SECOURS — onglet à 2 sous-onglets (bottom tab bar « Secours »).
    Numéros et contrats ci-dessous : valeurs d'EXEMPLE à remplacer par les
@@ -1188,18 +1234,18 @@ setRadarRange(RADAR_RANGE_M, false);
    modifier pour personnaliser ce module.
    ====================================================================== */
 const EMERGENCY_CONFIG = {
-  security:  { name: "Anne MAILLOT — Responsable Sécurité", phone: "+33685081373", phoneLabel: "06 85 08 13 73" },
-  president: { name: "Pierre RUEF — Président du club",  phone: "+33619816400", phoneLabel: "06 19 81 64 00" },
+  security:  { name: "Jean Dupont — Responsable Sécurité", phone: "+33600000000", phoneLabel: "06 00 00 00 00" },
+  president: { name: "Marie Martin — Présidente du club",  phone: "+33600000001", phoneLabel: "06 00 00 00 01" },
   insurance: {
     label: "Assurance du club (RC & Défense)",
-    phone: "+33972722243", phoneLabel: "09 72 72 22 43",
-    email: "fr.ffcam@wtwco.com",
-    policyNumber: "Contrat AXA n° 47 064 589 04",
+    phone: "+33800000000", phoneLabel: "0800 00 00 00",
+    email: "assistance@assureur-exemple.fr",
+    policyNumber: "Police collective n° XXXXXXXXX",
   },
   repatriation: {
-    francePhone: "+33155985798", franceLabel: "01 55 98 57 98",
-    intlPhone: "+33155985798", intlLabel: "+33 1 55 98 57 98",
-    contractNumber: "Contrat rapatriement n° 3462",
+    francePhone: "+33800000001", franceLabel: "0800 00 00 01",
+    intlPhone: "+33100000000", intlLabel: "+33 1 00 00 00 00",
+    contractNumber: "Contrat rapatriement n° XXXXXXXXX",
   },
 };
 const LICENSE_STORAGE_KEY = "gra-locator-license-number";
@@ -1213,6 +1259,31 @@ function emergencyCoordRow(label, value){
   </div>`;
 }
 
+// Lignes de position pour Secours vitaux, selon le format choisi dans
+// Préférences. Pour l'UTM, la zone est affichée explicitement (ex. "31N") :
+// indispensable pour que le régulateur/secouriste interprète correctement
+// les coordonnées Est/Nord — sans elle, l'Est/Nord seul est ambigu.
+function emergencyPositionRows(format, latitude, longitude){
+  if (format === "dd"){
+    return [
+      emergencyCoordRow("Latitude", formatDDAbs(latitude) + " " + hemisphereOf(latitude, true)),
+      emergencyCoordRow("Longitude", formatDDAbs(longitude) + " " + hemisphereOf(longitude, false)),
+    ];
+  }
+  if (format === "dms"){
+    return [
+      emergencyCoordRow("Latitude", toDMSAbs(latitude) + " " + hemisphereOf(latitude, true)),
+      emergencyCoordRow("Longitude", toDMSAbs(longitude) + " " + hemisphereOf(longitude, false)),
+    ];
+  }
+  const utm = toUTM(latitude, longitude);
+  return [
+    emergencyCoordRow("Zone UTM", utm.zone + utm.hemisphere),
+    emergencyCoordRow("Est (E)", Math.round(utm.easting) + " m"),
+    emergencyCoordRow("Nord (N)", Math.round(utm.northing) + " m"),
+  ];
+}
+
 // Position GPS affichée en très grand dans le sous-onglet "Secours vitaux" —
 // réutilise directement currentPosition, mis à jour par startGeolocation().
 function renderEmergencyPosition(){
@@ -1224,8 +1295,7 @@ function renderEmergencyPosition(){
   }
   const { latitude, longitude, accuracy, altitude } = currentPosition;
   body.innerHTML = [
-    emergencyCoordRow("Latitude", formatDDAbs(latitude) + " " + hemisphereOf(latitude, true)),
-    emergencyCoordRow("Longitude", formatDDAbs(longitude) + " " + hemisphereOf(longitude, false)),
+    ...emergencyPositionRows(coordFormat, latitude, longitude),
     emergencyCoordRow("Altitude", altitude != null ? Math.round(altitude) + " m" : "—"),
     emergencyCoordRow("Précision", accuracy != null ? "±" + Math.round(accuracy) + " m" : "—"),
   ].join("");
