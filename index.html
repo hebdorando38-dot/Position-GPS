@@ -3,411 +3,474 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>GPS - GRA</title>
+<title>SOS CAFGI — Position GPS &amp; Secours</title>
 <meta name="description" content="Position GPS et 6 émetteurs radio les plus proches du Grand Réseau des Alpes — Club Alpin Français Grenoble Isère. Application 100% hors-ligne." />
 <meta name="theme-color" content="#0091C2" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="GPS - GRA" />
+<meta name="apple-mobile-web-app-title" content="SOS CAFGI" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <link rel="stylesheet" href="leaflet.css" />
+
+<!-- Tailwind CSS — build "browser" officiel vendu en local (aucun appel réseau,
+     fonctionne hors-ligne en montagne comme le reste de l'appli). -->
+<script src="tailwind.js"></script>
+
 <style>
-  /* ---------- Design tokens ---------- */
-  :root{
-    /* Palette dérivée du logo du Club Alpin Français Grenoble Isère */
-    --bg:#F2F8FA;
-    --surface:#FFFFFF;
-    --surface-2:#E3F0F4;
-    --ink:#1E2C33;
-    --ink-muted:#5C6E77;
-    --line:#D2E3E8;
-    --accent:#0091C2;
-    --accent-ink:#FFFFFF;
-    --accent-2:#39B6DA;
-    --accent-2-ink:#08303D;
-    --brand-red:#C8331F;
-    --danger:#C8331F;
-    --danger-ink:#FFFFFF;
-    --radius:10px;
-    --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-mono: ui-monospace, "SF Mono", "Roboto Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
-  }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --bg:#0E1B21;
-      --surface:#152329;
-      --surface-2:#1C2E35;
-      --ink:#E7F1F4;
-      --ink-muted:#93A7AF;
-      --line:#283A41;
-      --accent:#33B6E0;
-      --accent-ink:#052129;
-      --accent-2:#7FD3EC;
-      --accent-2-ink:#052129;
-      --brand-red:#FF7A61;
-      --danger:#FF7A61;
-      --danger-ink:#330A02;
-    }
-  }
-  :root[data-theme="dark"]{
-    --bg:#0E1B21;
-    --surface:#152329;
-    --surface-2:#1C2E35;
-    --ink:#E7F1F4;
-    --ink-muted:#93A7AF;
-    --line:#283A41;
-    --accent:#33B6E0;
-    --accent-ink:#052129;
-    --accent-2:#7FD3EC;
-    --accent-2-ink:#052129;
-    --brand-red:#FF7A61;
-    --danger:#FF7A61;
-    --danger-ink:#330A02;
+  /* Polices embarquées localement (Inter / JetBrains Mono) — pas de Google
+     Fonts, pour rester 100% utilisable sans réseau. */
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:400; font-display:swap; src:url('fonts/inter-latin-400-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:500; font-display:swap; src:url('fonts/inter-latin-500-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:600; font-display:swap; src:url('fonts/inter-latin-600-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:700; font-display:swap; src:url('fonts/inter-latin-700-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'Inter'; font-style:normal; font-weight:800; font-display:swap; src:url('fonts/inter-latin-800-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'JetBrains Mono'; font-style:normal; font-weight:400; font-display:swap; src:url('fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'JetBrains Mono'; font-style:normal; font-weight:500; font-display:swap; src:url('fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2'); }
+  @font-face{ font-family:'JetBrains Mono'; font-style:normal; font-weight:700; font-display:swap; src:url('fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2'); }
+</style>
+
+<style type="text/tailwindcss">
+  @theme {
+    --font-sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, "SF Mono", Consolas, monospace;
+    /* Bleu du Club Alpin Français Grenoble Isère, décliné en échelle. */
+    --color-brand-50: #EAF7FC;
+    --color-brand-100: #D3EFF8;
+    --color-brand-300: #7FD3EC;
+    --color-brand-400: #39B6DA;
+    --color-brand-500: #0091C2;
+    --color-brand-600: #0081AD;
+    --color-brand-700: #056A8C;
+    --color-club-red-500: #C8331F;
+    --color-club-red-400: #FF7A61;
   }
 
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; padding:0; }
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:var(--font-body);
-    line-height:1.45;
-    -webkit-font-smoothing:antialiased;
-    min-height:100vh;
-    overflow-x:hidden;
-  }
-  @media (prefers-reduced-motion: reduce){
-    *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
-  }
+  /* ---------- Diagramme polaire (SVG généré en JS) ---------- */
+  .ring{ fill:none; stroke:theme(colors.slate.200); stroke-width:1; }
+  /* Libellés de boussole (points cardinaux, échelle) : contraste renforcé
+     pour rester lisibles en plein soleil / sur neige. */
+  .cardinal{ font-family:var(--font-sans); font-weight:800; font-size:12px; fill:theme(colors.slate.600); }
+  .user-dot{ fill:var(--color-brand-500); }
+  .user-ring{ fill:none; stroke:var(--color-brand-500); stroke-width:2; opacity:0.35; }
+  .emitter-dot{ fill:var(--color-brand-400); stroke:#fff; stroke-width:2; cursor:pointer; }
+  .emitter-group:focus-visible{ outline:3px solid var(--color-brand-500); outline-offset:2px; border-radius:4px; }
+  .emitter-leader{ stroke:theme(colors.slate.400); stroke-width:1; opacity:0.6; }
+  .emitter-pill{ fill:#fff; stroke:var(--color-brand-400); stroke-width:1.25; }
+  .emitter-code{ font-family:var(--font-mono); font-weight:700; font-size:10.5px; fill:theme(colors.slate.700); pointer-events:none; }
+  .scale-label{ font-family:var(--font-mono); font-size:9px; fill:theme(colors.slate.600); }
 
-  .label{
-    font-family:var(--font-display);
-    text-transform:uppercase;
-    letter-spacing:0.09em;
-    font-weight:700;
-    font-size:12px;
-    color:var(--ink-muted);
-  }
-  .mono{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
+  /* ---------- Radar boussole (SVG généré en JS, pivote avec le cap) ---------- */
+  .radar-ring{ fill:none; stroke:theme(colors.slate.200); stroke-width:1; }
+  .radar-scale-label{ font-family:var(--font-mono); font-size:8.5px; fill:theme(colors.slate.600); }
+  /* Cône de visée : fixe, ne pivote jamais — représente le haut de l'écran,
+     c'est-à-dire la direction regardée par l'utilisateur. */
+  .radar-cone{ fill:var(--color-brand-500); opacity:0.12; }
+  .radar-user-dot{ fill:var(--color-brand-500); }
+  .radar-north{ fill:var(--color-club-red-500); stroke:#fff; stroke-width:1.5; }
+  .radar-north-label{ font-family:var(--font-sans); font-weight:800; font-size:10px; fill:var(--color-club-red-500); }
+  .radar-emitter-in{ fill:var(--color-brand-400); stroke:#fff; stroke-width:1.5; cursor:pointer; }
+  .radar-emitter-out{ fill:theme(colors.amber.500); stroke:#fff; stroke-width:1.25; opacity:0.85; }
+  .radar-emitter-code{ font-family:var(--font-mono); font-weight:700; font-size:8.5px; fill:theme(colors.slate.600); pointer-events:none; }
+  /* Groupe tournant : la légère transition lisse les sauts entre deux
+     lectures de boussole (les capteurs ne sont pas parfaitement fluides). */
+  #radar-world{ transition:transform 0.15s linear; }
 
-  /* ---------- Shell ---------- */
-  #app{ max-width:520px; margin:0 auto; padding:0 16px 40px; }
+  /* ---------- Pavé numérique du code PIN encadrant ---------- */
+  .pin-key{
+    min-height:56px; border-radius:1rem;
+    background:theme(colors.slate.50); border:1px solid theme(colors.slate.200);
+    font-family:var(--font-sans); font-weight:800; font-size:19px; color:theme(colors.slate.700);
+    display:flex; align-items:center; justify-content:center; transition:transform .1s, background-color .1s;
+  }
+  .pin-key:active{ transform:scale(0.94); background:theme(colors.slate.100); }
 
-  .topbar{
-    position:sticky; top:0; z-index:5;
-    background:var(--bg);
-    padding:14px 0 10px;
-    border-bottom:1px solid var(--line);
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-  }
-  .topbar-left{ display:flex; align-items:center; gap:10px; min-width:0; }
-  .club-logo{
-    flex:none; width:38px; height:38px; border-radius:9px;
-    background:#FFFFFF; border:1px solid var(--line);
-    display:flex; align-items:center; justify-content:center;
-    padding:3px; box-shadow:0 1px 2px rgba(0,0,0,0.06);
-  }
-  .club-logo img{ width:100%; height:100%; object-fit:contain; display:block; }
-  .topbar-titles{ min-width:0; }
-  .topbar h1{
-    font-family:var(--font-display);
-    font-size:21px;
-    font-weight:800;
-    letter-spacing:0.01em;
-    margin:0;
-    white-space:nowrap;
-  }
-  .topbar h1 .accent{ color:var(--accent); }
-  .topbar h1 .dash{ color:var(--ink-muted); font-weight:500; }
-  .club-name{
-    font-size:10.5px; color:var(--ink-muted);
-    text-transform:uppercase; letter-spacing:0.05em; font-weight:700;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
-  .dataset-pill{
-    font-family:var(--font-mono);
-    font-size:11px;
-    color:var(--ink-muted);
-    white-space:nowrap;
-    flex:none;
-  }
-
-  .card{
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:18px;
-    margin-top:16px;
-  }
-
-  /* ---------- Position readout ---------- */
-  .status-row{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-  .dot{ width:9px; height:9px; border-radius:50%; background:var(--ink-muted); flex:none; }
-  .dot.live{ background:var(--accent-2); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent-2) 25%, transparent); }
-  .dot.error{ background:var(--danger); }
-  .status-text{ font-size:13px; color:var(--ink-muted); }
-
-  .readout{ margin-top:12px; display:grid; gap:18px; }
-  .readout-row{
-    padding-bottom:16px;
-    border-bottom:1px solid var(--line);
-  }
-  .readout-row:last-child{ border-bottom:none; padding-bottom:0; }
-  .readout-row .label{ display:block; margin-bottom:8px; }
-
-  /* Chaque ligne de coordonnée : valeur calée à droite (les chiffres se
-     superposent d'une ligne à l'autre), lettre d'axe (N/E/S/O) alignée
-     dans sa propre colonne — même règle sur les trois blocs (degrés
-     décimaux, DMS, UTM) pour un alignement cohérent sur toute la carte. */
-  .coord-row{
-    display:flex; align-items:baseline; justify-content:flex-end;
-    gap:0.35em;
-  }
-  .coord-row + .coord-row{ margin-top:4px; }
-  .coord-val{
-    min-width:11ch; text-align:right;
-    font-family:var(--font-mono); font-weight:700;
-    font-size:clamp(23px, 7.6vw, 32px);
-    line-height:1.3;
-    font-variant-numeric:tabular-nums;
-    color:var(--ink);
-  }
-  .coord-letter{
-    flex:none; text-align:left;
-    font-family:var(--font-mono); font-weight:800;
-    font-size:clamp(17px, 5.6vw, 23px);
-    color:var(--accent);
-    line-height:1.3;
-  }
-  .accuracy{ font-size:12px; color:var(--ink-muted); margin-top:10px; }
-
-  .btn{
-    appearance:none; border:none; cursor:pointer;
-    font-family:var(--font-display);
-    text-transform:uppercase; letter-spacing:0.06em; font-weight:700; font-size:13px;
-    padding:13px 18px; border-radius:8px;
-    display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    width:100%;
-  }
-  .btn:focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
-  .btn-primary{ background:var(--accent); color:var(--accent-ink); }
-  .btn-secondary{ background:transparent; color:var(--ink); border:1px solid var(--line); }
-  .btn-primary[disabled]{ opacity:0.45; cursor:not-allowed; }
-
-  .error-card{ border-color:var(--danger); }
-  .error-card .msg{ margin:6px 0 14px; }
-
-  /* ---------- Nearest screen ---------- */
-  #nearest-screen{ display:none; }
-  .screen-header{ display:flex; align-items:center; gap:10px; padding:16px 0 4px; }
-  .back-btn{
-    appearance:none; cursor:pointer; color:var(--ink);
-    background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
-    font-family:var(--font-display); text-transform:uppercase; letter-spacing:0.06em;
-    font-weight:700; font-size:12px;
-    padding:9px 13px; display:inline-flex; align-items:center; gap:6px; flex:none;
-  }
-  .back-btn:focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
-  .back-btn:active{ background:var(--surface); }
-  .screen-header h2{ font-family:var(--font-display); font-size:16px; font-weight:800; margin:0; flex:1; letter-spacing:0.02em; }
-  .screen-subtitle{ font-size:12.5px; color:var(--ink-muted); padding:0 0 10px; }
-
-  .view-toggle{ display:flex; gap:6px; background:var(--surface-2); padding:4px; border-radius:8px; margin-top:12px; }
-  .view-toggle button{
-    flex:1; border:none; background:transparent; cursor:pointer;
-    font-family:var(--font-display); text-transform:uppercase; letter-spacing:0.06em; font-weight:700; font-size:12px;
-    padding:9px 8px; border-radius:6px; color:var(--ink-muted);
-  }
-  .view-toggle button.active{ background:var(--surface); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
-
-  /* ---------- Polar diagram ---------- */
-  .diagram-wrap{ margin-top:16px; }
-  #diagram-svg{ width:100%; height:auto; display:block; }
-  .ring{ fill:none; stroke:var(--line); stroke-width:1; }
-  .spoke{ stroke:var(--line); stroke-width:1; }
-  .cardinal{ font-family:var(--font-display); font-weight:800; font-size:12px; fill:var(--ink-muted); }
-  .user-dot{ fill:var(--accent); }
-  .user-ring{ fill:none; stroke:var(--accent); stroke-width:2; opacity:0.35; }
-  .emitter-dot{ fill:var(--accent-2); stroke:var(--surface); stroke-width:2; cursor:pointer; }
-  .emitter-group:focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
-  .emitter-leader{ stroke:var(--ink-muted); stroke-width:1; opacity:0.55; }
-  .emitter-pill{ fill:var(--surface); stroke:var(--accent-2); stroke-width:1.25; }
-  .emitter-code{ font-family:var(--font-mono); font-weight:700; font-size:10.5px; fill:var(--ink); pointer-events:none; }
-  .scale-label{ font-family:var(--font-mono); font-size:9px; fill:var(--ink-muted); }
-  .diagram-hint{ font-size:12px; color:var(--ink-muted); text-align:center; margin-top:10px; }
-
-  /* ---------- Carte hors-ligne ---------- */
-  .map-wrap{ margin-top:14px; }
-  .map-wrap .map-label{ margin-bottom:6px; }
-  #map{
-    height:280px; border-radius:var(--radius); border:1px solid var(--line);
-    overflow:hidden; background:var(--surface-2);
-  }
-  .map-note{ font-size:11px; color:var(--ink-muted); margin-top:6px; }
+  /* ---------- Carte Leaflet ---------- */
   .leaflet-div-icon{ background:transparent; border:none; }
   .map-marker-user{
     width:18px; height:18px; border-radius:50%;
-    background:var(--accent); border:3px solid var(--surface);
-    box-shadow:0 0 0 2px var(--accent);
+    background:var(--color-brand-500); border:3px solid #fff;
+    box-shadow:0 0 0 2px var(--color-brand-500);
   }
   .map-marker-emitter{
     width:14px; height:14px; border-radius:50%;
-    background:var(--accent-2); border:2px solid var(--surface);
+    background:var(--color-brand-400); border:2px solid #fff;
     box-shadow:0 1px 3px rgba(0,0,0,0.35);
   }
 
-  /* ---------- Écran carte interactive ---------- */
-  #explore-screen{ display:none; }
-  .explore-hint{ font-size:13px; color:var(--ink-muted); margin:2px 0 12px; }
-  #explore-map{
-    height:58vh; min-height:320px;
-    border-radius:var(--radius); border:1px solid var(--line);
-    overflow:hidden; background:var(--surface-2);
-  }
-  .explore-selected{ margin-top:14px; }
-  .explore-selected .value{
-    font-family:var(--font-mono); font-weight:700; font-size:16px;
-    margin-top:4px; display:block;
+  /* ---------- États pilotés par la logique JS existante (classes
+     "active" / "open" / "error-card" / "live" / "error" — inchangées) ---------- */
+  .view-toggle button.active{ background:#fff; color:theme(colors.slate.900); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+
+  #position-card.error-card{ border-color:var(--color-club-red-500); }
+
+  #status-dot.live{ background:var(--color-brand-400); box-shadow:0 0 0 3px color-mix(in srgb, var(--color-brand-400) 30%, transparent); }
+  #status-dot.error{ background:var(--color-club-red-500); }
+
+  #backdrop.open{ opacity:1; pointer-events:auto; }
+  /* v4 : translate-y-full pose la propriété CSS `translate` (distincte de
+     `transform`) — il faut donc réinitialiser `translate`, pas `transform`. */
+  #sheet.open{ translate: 0 0; }
+
+  /* Coordonnées : chiffres calés à droite (alignés d'une ligne à l'autre),
+     lettre d'axe N/E/S/O dans sa propre colonne — même règle sur les trois
+     blocs (degrés décimaux, DMS, UTM). */
+  .coord-row{ display:flex; align-items:baseline; justify-content:flex-end; gap:0.3em; }
+  .coord-val{ min-width:11ch; text-align:right; font-variant-numeric:tabular-nums; }
+
+  /* Variantes sombres des règles ci-dessus. L'appli n'ajoute jamais de
+     classe ".dark" sur <html> — le mode sombre suit uniquement les
+     préférences système (media query), comme le fait le variant "dark:"
+     de Tailwind partout ailleurs dans ce fichier — donc ces overrides
+     utilisent la même media query plutôt qu'un sélecteur ".dark X". */
+  @media (prefers-color-scheme: dark){
+    .ring{ stroke:theme(colors.slate.700); }
+    .cardinal{ fill:theme(colors.slate.300); }
+    .user-dot{ fill:var(--color-brand-400); }
+    .user-ring{ stroke:var(--color-brand-400); }
+    .emitter-dot{ stroke:theme(colors.slate.900); }
+    .emitter-pill{ fill:theme(colors.slate.800); }
+    .emitter-code{ fill:theme(colors.slate.100); }
+    .scale-label{ fill:theme(colors.slate.300); }
+
+    .radar-ring{ stroke:theme(colors.slate.700); }
+    .radar-scale-label{ fill:theme(colors.slate.300); }
+    .radar-cone{ fill:var(--color-brand-400); opacity:0.18; }
+    .radar-user-dot{ fill:var(--color-brand-400); }
+    .radar-north{ fill:var(--color-club-red-400); stroke:theme(colors.slate.900); }
+    .radar-north-label{ fill:var(--color-club-red-400); }
+    .radar-emitter-in{ stroke:theme(colors.slate.900); }
+    .radar-emitter-out{ stroke:theme(colors.slate.900); }
+    .radar-emitter-code{ fill:theme(colors.slate.300); }
+
+    .pin-key{ background:theme(colors.slate.800); border-color:theme(colors.slate.700); color:theme(colors.slate.100); }
+    .pin-key:active{ background:theme(colors.slate.700); }
+
+    .view-toggle button.active{ background:theme(colors.slate.700); color:#fff; }
+    #position-card.error-card{ border-color:var(--color-club-red-400); }
   }
 
-  /* ---------- List view ---------- */
-  .list{ margin-top:16px; display:grid; gap:8px; }
-  .list-row{
-    display:grid;
-    grid-template-columns: 28px 1fr auto;
-    align-items:center; gap:10px;
-    padding:12px; border:1px solid var(--line); border-radius:8px;
-    background:var(--surface); cursor:pointer; text-align:left; width:100%;
-    font-family:var(--font-body); color:var(--ink);
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
   }
-  .list-row:focus-visible{ outline:3px solid var(--accent); outline-offset:1px; }
-  .list-rank{ font-family:var(--font-mono); font-weight:700; color:var(--accent-2); font-size:13px; }
-  .list-name{ font-size:14px; font-weight:600; }
-  .list-sub{ font-size:12px; color:var(--ink-muted); margin-top:1px; }
-  .list-metrics{ text-align:right; font-family:var(--font-mono); font-size:12px; white-space:nowrap; }
-
-  /* ---------- Detail sheet ---------- */
-  .backdrop{
-    position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:10;
-    opacity:0; pointer-events:none; transition:opacity 0.15s ease;
-  }
-  .backdrop.open{ opacity:1; pointer-events:auto; }
-  .sheet{
-    position:fixed; left:0; right:0; bottom:0; z-index:11;
-    background:var(--surface); border-top:1px solid var(--line);
-    border-radius:16px 16px 0 0;
-    padding:10px 20px 26px;
-    max-width:520px; margin:0 auto;
-    transform:translateY(100%); transition:transform 0.18s ease;
-    max-height:70vh; overflow-y:auto;
-  }
-  .sheet.open{ transform:translateY(0); }
-  .sheet-handle{ width:36px; height:4px; border-radius:2px; background:var(--line); margin:6px auto 14px; }
-  .sheet h3{ font-family:var(--font-display); font-size:18px; margin:0 0 2px; }
-  .sheet .tags{ display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 14px; }
-  .tag{ font-family:var(--font-mono); font-size:11px; padding:3px 8px; border-radius:100px; background:var(--surface-2); color:var(--ink-muted); }
-  .sheet-grid{ display:grid; gap:10px; }
-  .sheet-row{ display:grid; grid-template-columns:100px 1fr; gap:10px; }
-  .sheet-row .label{ padding-top:1px; }
-  .sheet-row .value{ font-family:var(--font-mono); font-size:14px; }
-
-  footer{ margin-top:28px; font-size:11px; color:var(--ink-muted); text-align:center; }
 </style>
 </head>
-<body>
-<div id="app">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased min-h-screen">
+<div id="app" class="max-w-[520px] mx-auto px-4 pb-24">
 
-  <div class="topbar">
-    <div class="topbar-left">
-      <span class="club-logo"><img src="club-logo.png" alt="Club Alpin Français Grenoble Isère" /></span>
-      <div class="topbar-titles">
-        <h1>GPS <span class="dash">-</span> <span class="accent">GRA</span></h1>
-        <div class="club-name">CAF Grenoble Isère</div>
+  <!-- ===== En-tête ===== -->
+  <div class="sticky top-0 z-10 -mx-4 px-4 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur border-b border-slate-200 dark:border-slate-800 py-3.5 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <span class="flex-none w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center p-1">
+        <img src="club-logo.png" alt="Club Alpin Français Grenoble Isère" class="w-full h-full object-contain" />
+      </span>
+      <div class="min-w-0">
+        <h1 class="font-sans text-[21px] font-extrabold tracking-tight leading-none whitespace-nowrap">
+          SOS <span class="text-brand-500 dark:text-brand-400">CAFGI</span>
+        </h1>
+        <div class="text-[10.5px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
+          CAF Grenoble Isère <span class="text-slate-300 dark:text-slate-700">·</span> <span id="dataset-pill" class="normal-case font-mono font-semibold tracking-normal">— émetteurs</span>
+        </div>
       </div>
     </div>
-    <div class="dataset-pill mono" id="dataset-pill">— émetteurs</div>
+    <button
+      class="flex-none min-h-[40px] inline-flex items-center gap-1.5 rounded-xl bg-club-red-500 text-white font-extrabold text-[13px] tracking-wide px-3.5 shadow-sm active:scale-95 transition"
+      id="btn-sos" aria-label="Urgences et secours"
+    ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/></svg><span>SOS</span></button>
   </div>
 
   <!-- ===== Écran position ===== -->
   <div id="position-screen">
-    <div class="card" id="position-card">
-      <div class="status-row">
-        <span class="dot" id="status-dot"></span>
-        <span class="status-text" id="status-text">Initialisation…</span>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-4.5 mt-4" id="position-card">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-none transition-colors" id="status-dot"></span>
+          <span class="text-[13px] text-slate-500 dark:text-slate-400" id="status-text">Initialisation…</span>
+        </div>
+        <button
+          class="flex-none inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none"
+          id="btn-copy" disabled aria-label="Copier les coordonnées"
+        >
+          <span id="btn-copy-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+          <span id="btn-copy-label">Copier</span>
+        </button>
       </div>
-      <div id="position-body"></div>
+      <div id="position-body" role="button" tabindex="0" aria-label="Copier les coordonnées" class="cursor-pointer active:opacity-70 transition-opacity"></div>
     </div>
 
-    <div style="margin-top:16px; display:grid; gap:10px;">
-      <button class="btn btn-primary" id="btn-nearest" disabled>Voir les 6 émetteurs proches</button>
-      <button class="btn btn-secondary" id="btn-explore-map">Explorer sur la carte</button>
+    <!-- ===== Radar boussole ===== -->
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-4.5 mt-4" id="radar-card">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Radar boussole</span>
+        <span class="font-mono font-bold text-[15px] tabular-nums" id="radar-heading-value">— —</span>
+      </div>
+
+      <div id="radar-viz" class="hidden mx-auto mt-2" style="max-width:260px;">
+        <svg id="radar-svg" viewBox="0 0 260 260" role="img" aria-label="Radar boussole des émetteurs autour de vous" class="w-full h-auto block"></svg>
+      </div>
+      <div id="radar-placeholder" class="text-[13px] text-slate-400 dark:text-slate-500 text-center py-8">En attente de la position GPS…</div>
+
+      <div class="flex items-center justify-between gap-2 flex-wrap mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-brand-400 flex-none"></span>À portée</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 flex-none"></span>Hors portée</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-club-red-500 flex-none"></span>Nord</span>
+        </div>
+        <button
+          class="flex-none inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none"
+          id="btn-compass"
+        >
+          <span id="btn-compass-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/></svg></span>
+          <span id="btn-compass-label">Activer la boussole</span>
+        </button>
+      </div>
+      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2" id="radar-status-text"></p>
+    </div>
+
+    <div class="mt-4 grid gap-2.5">
+      <button
+        class="min-h-[48px] w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-500 text-white font-bold text-[14px] tracking-wide shadow-sm active:scale-[0.98] transition disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
+        id="btn-nearest" disabled
+      ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47"/><path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1"/><path d="M9.5 18h5"/><path d="m8 22 4-11 4 11"/></svg><span>Voir les 6 émetteurs proches</span></button>
+      <button
+        class="min-h-[48px] w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[14px] tracking-wide shadow-sm active:scale-[0.98] transition"
+        id="btn-explore-map"
+      ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg><span>Explorer sur la carte</span></button>
     </div>
   </div>
 
   <!-- ===== Écran carte interactive ===== -->
-  <div id="explore-screen">
-    <div class="screen-header">
-      <button class="back-btn" id="btn-back-explore">← Retour</button>
-      <h2>Explorer la carte</h2>
+  <div id="explore-screen" class="hidden">
+    <div class="flex items-center gap-3 pt-4 pb-1">
+      <button class="flex-none min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-[12px] font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200 active:scale-95 transition" id="btn-back-explore"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg><span>Retour</span></button>
+      <h2 class="font-sans text-[16px] font-extrabold tracking-tight flex-1">Explorer la carte</h2>
     </div>
-    <p class="explore-hint">Touchez un point sur la carte pour voir les 6 émetteurs les plus proches de cet endroit.</p>
+    <p class="text-[13px] text-slate-500 dark:text-slate-400 mt-1 mb-3">Touchez un point sur la carte pour voir les 6 émetteurs les plus proches de cet endroit.</p>
 
-    <div id="explore-map"></div>
+    <div id="explore-map" class="h-[58vh] min-h-[320px] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-900"></div>
 
-    <div class="card explore-selected" id="explore-selected" style="display:none;">
-      <span class="label">Point sélectionné</span>
-      <span class="value mono" id="explore-selected-coords"></span>
+    <div class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-4 mt-3.5" id="explore-selected">
+      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Point sélectionné</span>
+      <span class="block font-mono font-bold text-[16px] mt-1 tabular-nums" id="explore-selected-coords"></span>
     </div>
-    <div style="margin-top:12px;">
-      <button class="btn btn-primary" id="btn-explore-nearest" disabled>Voir les 6 émetteurs proches</button>
+    <div class="mt-3">
+      <button
+        class="min-h-[48px] w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-500 text-white font-bold text-[14px] tracking-wide shadow-sm active:scale-[0.98] transition disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
+        id="btn-explore-nearest" disabled
+      ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47"/><path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1"/><path d="M9.5 18h5"/><path d="m8 22 4-11 4 11"/></svg><span>Voir les 6 émetteurs proches</span></button>
     </div>
   </div>
 
   <!-- ===== Écran émetteurs proches ===== -->
-  <div id="nearest-screen">
-    <div class="screen-header">
-      <button class="back-btn" id="btn-back">← Retour</button>
-      <h2>6 émetteurs les plus proches</h2>
+  <div id="nearest-screen" class="hidden">
+    <div class="flex items-center gap-3 pt-4 pb-1">
+      <button class="flex-none min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-[12px] font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200 active:scale-95 transition" id="btn-back"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg><span>Retour</span></button>
+      <h2 class="font-sans text-[16px] font-extrabold tracking-tight flex-1">6 émetteurs les plus proches</h2>
     </div>
-    <div class="screen-subtitle" id="nearest-subtitle"></div>
+    <div class="text-[12.5px] text-slate-500 dark:text-slate-400 pb-2.5" id="nearest-subtitle"></div>
 
-    <div class="view-toggle">
-      <button id="toggle-diagram" class="active">Diagramme</button>
-      <button id="toggle-list">Liste</button>
+    <div class="flex gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mt-2.5">
+      <button id="toggle-diagram" class="active flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 transition"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg><span>Diagramme</span></button>
+      <button id="toggle-list" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 transition"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg><span>Liste</span></button>
     </div>
 
-    <div class="diagram-wrap" id="diagram-view">
-      <svg id="diagram-svg" viewBox="0 0 320 320" role="img" aria-label="Diagramme polaire des émetteurs proches"></svg>
-      <p class="diagram-hint">Touchez un repère pour le détail.</p>
+    <div id="diagram-view" class="mt-4">
+      <svg id="diagram-svg" viewBox="0 0 320 320" role="img" aria-label="Diagramme polaire des émetteurs proches" class="w-full h-auto block"></svg>
+      <p class="text-[12px] text-slate-400 dark:text-slate-500 text-center mt-2.5">Touchez un repère pour le détail.</p>
 
-      <div class="map-wrap">
-        <span class="label map-label">Carte</span>
-        <div id="map"></div>
-        <p class="map-note">Le fond de carte s'affiche s'il a déjà été chargé une fois avec du réseau sur cette zone ; sinon seuls les repères s'affichent.</p>
+      <div class="mt-3.5">
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1.5">Carte</span>
+        <div id="map" class="h-[280px] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-900"></div>
+        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Le fond de carte s'affiche s'il a déjà été chargé une fois avec du réseau sur cette zone ; sinon seuls les repères s'affichent.</p>
       </div>
     </div>
 
-    <div class="list" id="list-view" style="display:none;"></div>
+    <div class="hidden mt-4 grid gap-2" id="list-view"></div>
   </div>
 
-  <footer>Fonctionne entièrement hors-ligne · aucune donnée envoyée sur le réseau</footer>
+  <footer class="mt-7 text-[11px] text-slate-400 dark:text-slate-600 text-center">Fonctionne entièrement hors-ligne · aucune donnée envoyée sur le réseau</footer>
 </div>
 
-<div class="backdrop" id="backdrop"></div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
-  <div class="sheet-handle"></div>
-  <h3 id="sheet-title"></h3>
-  <div class="tags" id="sheet-tags"></div>
-  <div class="sheet-grid" id="sheet-grid"></div>
+<!-- ===== Accès rapide SOS en bas d'écran — zone d'accessibilité du pouce
+     (le bouton SOS de l'en-tête reste en place ; celui-ci évite toute
+     contorsion pour l'atteindre à une seule main). Masqué visuellement par
+     la fiche détail / la modale d'urgence quand elles sont ouvertes
+     (z-index inférieur), pas besoin de le cacher explicitement en JS. ===== -->
+<button
+  class="fixed z-[25] right-4 min-h-[60px] min-w-[60px] w-[60px] h-[60px] rounded-full bg-club-red-500 text-white shadow-lg flex flex-col items-center justify-center gap-0.5 active:scale-95 transition"
+  style="bottom:max(1.25rem, calc(env(safe-area-inset-bottom) + 0.85rem));"
+  id="btn-sos-fab" aria-label="Urgences et secours"
+><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-none"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/></svg><span class="text-[9.5px] font-extrabold uppercase tracking-wide leading-none">SOS</span></button>
+
+<div id="backdrop" class="fixed inset-0 bg-black/40 z-20 opacity-0 pointer-events-none transition-opacity duration-150"></div>
+<div id="sheet" class="fixed left-0 right-0 bottom-0 z-30 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 rounded-t-2xl px-5 pt-2.5 pb-7 max-w-[520px] mx-auto translate-y-full transition-transform duration-200 max-h-[70vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="w-9 h-1 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto my-1.5"></div>
+  <h3 id="sheet-title" class="font-sans text-[18px] font-extrabold mt-1"></h3>
+  <div id="sheet-tags" class="flex gap-1.5 flex-wrap mt-2 mb-3.5"></div>
+  <div id="sheet-grid" class="grid gap-2.5"></div>
+</div>
+
+<!-- ===== Modale « Urgences & Secours » (plein écran, 2 onglets) ===== -->
+<div id="emergency-modal" class="hidden fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex-col" role="dialog" aria-modal="true" aria-labelledby="emergency-title">
+  <div class="flex-none sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-3">
+    <span class="flex-none w-9 h-9 rounded-xl bg-club-red-50 dark:bg-club-red-500/10 text-club-red-500 dark:text-club-red-400 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4.5 h-4.5"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/></svg></span>
+    <h2 id="emergency-title" class="flex-1 min-w-0 font-sans text-[16px] font-extrabold tracking-tight truncate">Urgences &amp; Secours</h2>
+    <button
+      class="flex-none min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 active:scale-95 transition"
+      id="btn-emergency-close" aria-label="Fermer"
+    ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+
+  <div class="flex-none px-4 pt-3">
+    <div class="flex gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+      <button id="emergency-tab-vital" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12.5px] font-bold transition"><span>🚨 Secours vitaux</span></button>
+      <button id="emergency-tab-contacts" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12.5px] font-bold transition"><span>📋 Contacts &amp; Assurances</span></button>
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto px-4 pt-4 pb-8">
+
+    <!-- ---------- Onglet 1 : Secours vitaux (terrain) ---------- -->
+    <div id="emergency-page-vital" class="grid gap-3.5">
+      <div class="bg-white dark:bg-slate-900 border-2 border-club-red-200 dark:border-club-red-500/30 rounded-2xl p-4 shadow-sm">
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">Position GPS en direct</span>
+        <div id="emergency-position-body"></div>
+      </div>
+
+      <!-- Espacement volontairement large (gap-3.5 = 14px) entre l'appel
+           vocal direct et le SMS, pour éviter tout déclenchement accidentel
+           du 112 en marchant ou avec des gants. -->
+      <div class="grid gap-3.5">
+        <a href="tel:112" class="min-h-[56px] w-full inline-flex items-center justify-center gap-2.5 rounded-2xl bg-club-red-500 text-white font-extrabold text-[17px] tracking-wide shadow-sm active:scale-[0.98] transition">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-none"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/></svg>
+          <span>Appeler le 112</span>
+        </a>
+        <button id="btn-sms-114" class="min-h-[52px] w-full inline-flex items-center justify-center gap-2.5 rounded-2xl bg-white dark:bg-slate-900 border-2 border-club-red-500 text-club-red-500 dark:text-club-red-400 font-extrabold text-[15px] tracking-wide shadow-sm active:scale-[0.98] transition">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-none"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></svg>
+          <span>Envoyer un SMS au 114 (sourds &amp; malentendants)</span>
+        </button>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2.5">Pense-bête pour le régulateur</span>
+        <div class="grid gap-2.5 text-[13px] text-slate-600 dark:text-slate-300">
+          <div class="flex gap-2.5"><span class="flex-none w-14 font-mono font-extrabold text-brand-500 dark:text-brand-400">Qui</span><span>Nom de l'encadrant, nom du groupe, numéro de téléphone.</span></div>
+          <div class="flex gap-2.5"><span class="flex-none w-14 font-mono font-extrabold text-brand-500 dark:text-brand-400">Où</span><span>Coordonnées ci-dessus + repères visuels (versant, arête, couloir).</span></div>
+          <div class="flex gap-2.5"><span class="flex-none w-14 font-mono font-extrabold text-brand-500 dark:text-brand-400">Quoi</span><span>Nombre de victimes, gravité (conscience, ventilation, saignement).</span></div>
+          <div class="flex gap-2.5"><span class="flex-none w-14 font-mono font-extrabold text-brand-500 dark:text-brand-400">Météo</span><span>Visibilité, vent, plafond nuageux (pour l'hélicoptère).</span></div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2.5">Signaux de détresse &amp; hélitreuillage</span>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-center">
+            <span class="block text-[28px] font-extrabold font-mono text-club-red-500 dark:text-club-red-400 leading-none">Y</span>
+            <span class="block text-[12px] font-semibold text-slate-600 dark:text-slate-300 mt-1.5">Besoin de secours</span>
+            <span class="block text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Deux bras levés en V</span>
+          </div>
+          <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-center">
+            <span class="block text-[28px] font-extrabold font-mono text-emerald-600 dark:text-emerald-400 leading-none">N</span>
+            <span class="block text-[12px] font-semibold text-slate-600 dark:text-slate-300 mt-1.5">Pas besoin d'aide</span>
+            <span class="block text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Un bras levé, un bras baissé</span>
+          </div>
+        </div>
+
+        <div class="mt-3.5 pt-3.5 border-t border-slate-100 dark:border-slate-800">
+          <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">À l'approche de l'hélicoptère</span>
+          <ul class="grid gap-2 text-[12.5px] text-slate-600 dark:text-slate-300">
+            <li class="flex gap-2"><span class="flex-none font-extrabold text-brand-500 dark:text-brand-400">·</span><span>Regroupez et plaquez au sol le matériel léger (bâtons, sacs, vêtements) pour qu'il ne s'envole pas.</span></li>
+            <li class="flex gap-2"><span class="flex-none font-extrabold text-brand-500 dark:text-brand-400">·</span><span>Restez accroupi et immobile, protégez vos yeux du souffle du rotor.</span></li>
+            <li class="flex gap-2"><span class="flex-none font-extrabold text-brand-500 dark:text-brand-400">·</span><span>Ne faites aucun grand geste inutile.</span></li>
+            <li class="flex gap-2"><span class="flex-none font-extrabold text-brand-500 dark:text-brand-400">·</span><span>En cas de treuillage : laissez le câble ou le crochet toucher le sol avant de le saisir (décharge électrostatique), puis suivez strictement les instructions du secouriste.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- Onglet 2 : Contacts & Assurances (protégé par code PIN encadrant) ---------- -->
+    <div id="emergency-page-contacts" class="hidden">
+
+      <!-- ----- Écran verrouillé : pavé numérique ----- -->
+      <div id="emergency-pin-gate" class="grid gap-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm text-center">
+          <span class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 mb-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <h3 class="font-sans text-[16px] font-extrabold tracking-tight">Espace Encadrants</h3>
+          <p class="text-[12.5px] text-slate-500 dark:text-slate-400 mt-1.5 px-2">Code d'accès requis pour les contacts de crise et les assurances du club.</p>
+
+          <div class="flex items-center justify-center gap-3 my-5" id="pin-dots">
+            <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600"></span>
+            <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600"></span>
+            <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600"></span>
+            <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600"></span>
+            <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600"></span>
+          </div>
+
+          <p id="pin-error" class="text-[12px] font-semibold text-club-red-500 dark:text-club-red-400 h-4 mb-1" aria-live="polite"></p>
+
+          <div class="grid grid-cols-3 gap-2.5 max-w-[280px] mx-auto" id="pin-keypad">
+            <button class="pin-key" data-digit="1">1</button>
+            <button class="pin-key" data-digit="2">2</button>
+            <button class="pin-key" data-digit="3">3</button>
+            <button class="pin-key" data-digit="4">4</button>
+            <button class="pin-key" data-digit="5">5</button>
+            <button class="pin-key" data-digit="6">6</button>
+            <button class="pin-key" data-digit="7">7</button>
+            <button class="pin-key" data-digit="8">8</button>
+            <button class="pin-key" data-digit="9">9</button>
+            <button class="pin-key" data-action="clear" style="font-size:12px;" aria-label="Effacer">Effacer</button>
+            <button class="pin-key" data-digit="0">0</button>
+            <button class="pin-key" data-action="backspace" aria-label="Supprimer le dernier chiffre"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/><path d="m12 9 6 6"/><path d="m18 9-6 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ----- Contenu déverrouillé ----- -->
+      <div id="emergency-contacts-unlocked" class="hidden">
+        <div id="emergency-contacts-body" class="grid grid-cols-1 gap-3.5"></div>
+        <button id="btn-emergency-lock" class="mt-4 mx-auto min-h-[44px] flex items-center gap-1.5 px-3 text-[12px] font-semibold text-slate-400 dark:text-slate-500 active:opacity-60 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Verrouiller à nouveau</span>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
 </div>
 
 <script src="leaflet.js"></script>
 <script>
 "use strict";
+
+/* ======================================================================
+   ICÔNES (Lucide, sources SVG vendues localement — hors-ligne)
+   ====================================================================== */
+const ICON_PATHS = {
+  arrowLeft: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  radioTower: '<path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47"/><path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1"/><path d="M9.5 18h5"/><path d="m8 22 4-11 4 11"/>',
+  map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  refreshCw: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  alertTriangle: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  ruler: '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
+  compass: '<circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/>',
+  mountain: '<path d="m8 3 4 8 5-5 5 15H2L8 3z"/>',
+  radar: '<path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>',
+  list: '<path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/>',
+  phone: '<path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"/>',
+  mail: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
+  messageSquare: '<path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  siren: '<path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/>',
+};
+function icon(name, cls){
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls || "w-4 h-4"}">${ICON_PATHS[name]}</svg>`;
+}
 
 /* ======================================================================
    DONNÉES — émetteurs du Grand Réseau des Alpes (embarquées, hors-ligne)
@@ -540,41 +603,142 @@ let selectedPoint = null;     // dernier point touché sur la carte interactive
 
 el("dataset-pill").textContent = EMITTERS.length + " émetteurs chargés";
 
+const compassSupported = typeof window.DeviceOrientationEvent !== "undefined";
+if (!compassSupported){
+  el("btn-compass").disabled = true;
+  el("btn-compass-label").textContent = "Boussole indisponible";
+  el("radar-status-text").textContent = "Cet appareil ou ce navigateur ne fournit pas de données de boussole.";
+}
+el("btn-copy-icon").innerHTML = icon("copy", "w-4 h-4");
+
+/* ---------- Toast ---------- */
+let toastTimer = null;
+function showToast(message, kind){
+  let toast = el("toast");
+  if (!toast){
+    toast = document.createElement("div");
+    toast.id = "toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.appendChild(toast);
+  }
+  clearTimeout(toastTimer);
+  const isError = kind === "error";
+  toast.innerHTML = `${icon(isError ? "alertTriangle" : "checkCircle", "w-4 h-4 flex-none")}<span>${escapeXml(message)}</span>`;
+  toast.className = "fixed left-1/2 bottom-24 z-40 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-[13px] font-semibold transition-all duration-200 " +
+    (isError ? "bg-club-red-500 text-white" : "bg-slate-900 dark:bg-white text-white dark:text-slate-900") +
+    " opacity-0 pointer-events-none";
+  toast.style.transform = "translate(-50%, 8px)";
+  requestAnimationFrame(() => {
+    toast.classList.remove("opacity-0");
+    toast.style.transform = "translate(-50%, 0)";
+  });
+  toastTimer = setTimeout(() => {
+    toast.classList.add("opacity-0");
+    toast.style.transform = "translate(-50%, 8px)";
+  }, 2500);
+}
+
+/* ---------- Copie rapide des coordonnées ---------- */
+async function copyCoordinates(){
+  if (!currentPosition) return;
+  const { latitude, longitude } = currentPosition;
+  const utm = toUTM(latitude, longitude);
+  const text = [
+    `Degrés déc. : ${formatDDAbs(latitude)} ${hemisphereOf(latitude, true)}, ${formatDDAbs(longitude)} ${hemisphereOf(longitude, false)}`,
+    `DMS : ${toDMSAbs(latitude)} ${hemisphereOf(latitude, true)}, ${toDMSAbs(longitude)} ${hemisphereOf(longitude, false)}`,
+    `UTM : ${utm.zone}${utm.hemisphere} ${Math.round(utm.easting)}mE ${Math.round(utm.northing)}mN`,
+  ].join("\n");
+
+  try {
+    if (navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    const iconEl = el("btn-copy-icon"), labelEl = el("btn-copy-label");
+    iconEl.innerHTML = icon("check", "w-4 h-4");
+    labelEl.textContent = "Copié";
+    showToast("Coordonnées copiées dans le presse-papier", "success");
+    setTimeout(() => {
+      iconEl.innerHTML = icon("copy", "w-4 h-4");
+      labelEl.textContent = "Copier";
+    }, 1600);
+  } catch (err) {
+    showToast("Copie impossible sur cet appareil", "error");
+  }
+}
+el("btn-copy").addEventListener("click", copyCoordinates);
+// Toucher directement le bloc GPS copie aussi les coordonnées (raccourci
+// pratique à une main, en plus du bouton "Copier" dédié).
+el("position-body").addEventListener("click", copyCoordinates);
+el("position-body").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); copyCoordinates(); }
+});
+
 /* ---------- Écran position ---------- */
 function coordRow(value, letter){
-  return `<div class="coord-row"><span class="coord-val">${value}</span>${letter ? `<span class="coord-letter">${letter}</span>` : ""}</div>`;
+  return `<div class="coord-row"><span class="coord-val font-mono font-bold text-[clamp(23px,7.6vw,32px)] leading-tight">${value}</span>${letter ? `<span class="flex-none font-mono font-extrabold text-[clamp(17px,5.6vw,23px)] leading-tight text-brand-500 dark:text-brand-400">${letter}</span>` : ""}</div>`;
 }
+
+// Seuils de précision GPS typiques en usage rando/montagne.
+function accuracyTier(m){
+  if (m == null) return null;
+  if (m <= 15) return "good";
+  if (m <= 40) return "ok";
+  return "poor";
+}
+const ACCURACY_STYLES = {
+  good: { label: "Précision bonne", classes: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30" },
+  ok:   { label: "Précision correcte", classes: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30" },
+  poor: { label: "Précision faible", classes: "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30" },
+};
 
 function renderPosition(pos){
   const { latitude, longitude, accuracy } = pos;
   const utm = toUTM(latitude, longitude);
+  const tier = accuracyTier(accuracy);
+  const badge = tier ? ACCURACY_STYLES[tier] : null;
 
   el("position-body").innerHTML = `
-    <div class="readout">
-      <div class="readout-row">
-        <span class="label">Degrés déc.</span>
+    <div class="mt-3 grid gap-4">
+      <div class="pb-4 border-b border-slate-100 dark:border-slate-800">
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Degrés déc.</span>
         ${coordRow(formatDDAbs(latitude), hemisphereOf(latitude, true))}
         ${coordRow(formatDDAbs(longitude), hemisphereOf(longitude, false))}
       </div>
-      <div class="readout-row">
-        <span class="label">DMS</span>
+      <div class="pb-4 border-b border-slate-100 dark:border-slate-800">
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">DMS</span>
         ${coordRow(toDMSAbs(latitude), hemisphereOf(latitude, true))}
         ${coordRow(toDMSAbs(longitude), hemisphereOf(longitude, false))}
       </div>
-      <div class="readout-row">
-        <span class="label">UTM</span>
+      <div>
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">UTM</span>
         ${coordRow(utm.zone + utm.hemisphere)}
         ${coordRow(Math.round(utm.easting) + " m", "E")}
         ${coordRow(Math.round(utm.northing) + " m", "N")}
       </div>
     </div>
-    ${accuracy != null ? `<div class="accuracy">Précision : ±${Math.round(accuracy)} m</div>` : ""}
+    ${badge != null && accuracy != null ? `
+      <div class="mt-4 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-bold ${badge.classes}">
+        <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+        <span>${badge.label} · ±${Math.round(accuracy)} m</span>
+      </div>
+    ` : ""}
   `;
+  el("btn-copy").disabled = false;
 }
 
 function setStatus(kind, text){
   const dot = el("status-dot");
-  dot.className = "dot" + (kind === "live" ? " live" : kind === "error" ? " error" : "");
+  dot.className = "w-2.5 h-2.5 rounded-full flex-none transition-colors " +
+    (kind === "live" ? "dot live" : kind === "error" ? "dot error" : "dot bg-slate-300 dark:bg-slate-600");
   el("status-text").textContent = text;
 }
 
@@ -582,9 +746,10 @@ function showLocationError(message, opts){
   opts = opts || {};
   el("position-card").classList.add("error-card");
   setStatus("error", "Localisation indisponible");
-  el("position-body").innerHTML = `<p class="msg">${message}</p>`;
+  el("btn-copy").disabled = true;
+  el("position-body").innerHTML = `<p class="msg mt-3 text-[13px] text-slate-600 dark:text-slate-300">${message}</p>`;
   if (opts.retry){
-    el("position-body").innerHTML += `<button class="btn btn-secondary" id="btn-retry-loc">Réessayer</button>`;
+    el("position-body").innerHTML += `<button class="mt-3.5 min-h-[44px] w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[13px] tracking-wide active:scale-[0.98] transition" id="btn-retry-loc">${icon("refreshCw", "w-4 h-4")}<span>Réessayer</span></button>`;
     el("btn-retry-loc").addEventListener("click", startGeolocation);
   }
   el("btn-nearest").disabled = true;
@@ -604,6 +769,8 @@ function startGeolocation(){
       currentPosition = pos.coords;
       setStatus("live", "Position à jour");
       renderPosition(pos.coords);
+      renderRadarMarkers();
+      renderEmergencyPosition();
       el("btn-nearest").disabled = EMITTERS.length === 0;
     },
     (err) => {
@@ -875,14 +1042,14 @@ function renderList(){
   container.innerHTML = "";
   currentResults.forEach((r, i) => {
     const row = document.createElement("button");
-    row.className = "list-row";
+    row.className = "flex items-center gap-3 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm text-left w-full active:scale-[0.99] transition";
     row.innerHTML = `
-      <span class="list-rank mono">${i+1}</span>
-      <span>
-        <span class="list-name">${escapeXml(r.emitter.name)}</span>
-        <div class="list-sub">${escapeXml([r.emitter.reseau, r.emitter.massif].filter(Boolean).join(" · "))}</div>
+      <span class="flex-none w-7 h-7 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-bold text-[13px] flex items-center justify-center">${i+1}</span>
+      <span class="flex-1 min-w-0">
+        <span class="block text-[14px] font-semibold truncate">${escapeXml(r.emitter.name)}</span>
+        <span class="block text-[12px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">${escapeXml([r.emitter.reseau, r.emitter.massif].filter(Boolean).join(" · "))}</span>
       </span>
-      <span class="list-metrics">${distanceLabel(r.distanceMeters)}<br>${azimuthLabel(r.azimuthDegrees)}</span>
+      <span class="flex-none text-right font-mono font-bold text-[12px] text-slate-700 dark:text-slate-200 leading-snug">${distanceLabel(r.distanceMeters)}<br>${azimuthLabel(r.azimuthDegrees)}</span>
     `;
     row.addEventListener("click", () => openSheet(r));
     container.appendChild(row);
@@ -942,27 +1109,471 @@ function renderMap(){
 
 function codeOfEmitter(e){ return (e.code || e.name || "").trim(); }
 
+/* ======================================================================
+   RADAR BOUSSOLE — cadran SVG orienté selon le cap du téléphone.
+   Réutilise distanceMeters()/initialBearingDegrees() (Haversine + relèvement
+   initial) déjà définies plus haut : aucune formule de position dupliquée.
+   ====================================================================== */
+const RADAR_SIZE = 260;
+const RADAR_CENTER = RADAR_SIZE / 2;
+const RADAR_RADIUS = RADAR_CENTER - 34; // laisse la place aux libellés d'échelle
+const RADAR_RANGE_M = 5000;        // rayon "à portée" (vert) = échelle des anneaux
+const RADAR_SHOW_BEYOND_M = 40000; // au-delà, plus utile à afficher (reste dans Liste/Diagramme)
+
+let radarWorldGroup = null;
+let radarBuilt = false;
+let currentHeading = 0;
+let compassActive = false;
+let headingIsAbsolute = false;
+let radarRotationPending = false;
+
+const COMPASS_POINTS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+function compassPointLabel(heading){
+  const idx = Math.round((((heading % 360) + 360) % 360) / 22.5) % 16;
+  return COMPASS_POINTS[idx];
+}
+
+// Place un point sur le cadran radar à partir d'un relèvement compas
+// (0° = nord, sens horaire) — même convention que le diagramme polaire.
+function radarPolarPoint(bearingDeg, r){
+  const a = (bearingDeg - 90) * Math.PI / 180;
+  return { x: RADAR_CENTER + r * Math.cos(a), y: RADAR_CENTER + r * Math.sin(a) };
+}
+
+// Éléments fixes du cadran (anneaux, échelle, cône de visée) : construits une
+// seule fois, ne dépendent pas de la position ni du cap.
+function buildRadarStatic(){
+  const svg = el("radar-svg");
+  svg.innerHTML = "";
+
+  [0.33, 0.66, 1.0].forEach(f => {
+    svg.appendChild(svgEl("circle", { class: "radar-ring", cx: RADAR_CENTER, cy: RADAR_CENTER, r: RADAR_RADIUS * f }));
+  });
+  [0.33, 0.66, 1.0].forEach(f => {
+    const t = svgEl("text", { class: "radar-scale-label", x: RADAR_CENTER + 4, y: RADAR_CENTER - RADAR_RADIUS * f - 3 });
+    t.textContent = distanceLabel(RADAR_RANGE_M * f);
+    svg.appendChild(t);
+  });
+
+  // Cône de visée — FIXE, ne pivote jamais : représente le haut de l'écran,
+  // c'est-à-dire la direction actuellement regardée par l'utilisateur.
+  const coneHalfWidth = 17;
+  svg.appendChild(svgEl("path", {
+    class: "radar-cone",
+    d: `M ${RADAR_CENTER} ${RADAR_CENTER} L ${RADAR_CENTER - coneHalfWidth} ${RADAR_CENTER - RADAR_RADIUS} L ${RADAR_CENTER + coneHalfWidth} ${RADAR_CENTER - RADAR_RADIUS} Z`,
+  }));
+
+  // Groupe tournant : contient le nord et les émetteurs, pivote selon le cap.
+  radarWorldGroup = svgEl("g", { id: "radar-world" });
+  svg.appendChild(radarWorldGroup);
+
+  // Point utilisateur, fixe au centre.
+  svg.appendChild(svgEl("circle", { class: "radar-user-dot", cx: RADAR_CENTER, cy: RADAR_CENTER, r: 4 }));
+
+  radarBuilt = true;
+}
+
+// Reconstruit les repères (nord + émetteurs) — appelé à chaque nouvelle
+// position GPS. La rotation elle-même (fréquente, pilotée par la boussole)
+// est appliquée séparément par updateRadarRotation() pour rester légère.
+function renderRadarMarkers(){
+  if (!currentPosition) return;
+  if (!radarBuilt) buildRadarStatic();
+  radarWorldGroup.innerHTML = "";
+
+  // Nord géographique — repère rouge fixe au bord du cadran, qui tourne
+  // avec le monde (donc se déplace visuellement quand on pivote sur soi).
+  const northPos = radarPolarPoint(0, RADAR_RADIUS);
+  radarWorldGroup.appendChild(svgEl("circle", { class: "radar-north", cx: northPos.x, cy: northPos.y, r: 5 }));
+  const northLabel = svgEl("text", { class: "radar-north-label", x: northPos.x, y: northPos.y - 9, "text-anchor": "middle" });
+  northLabel.textContent = "N";
+  radarWorldGroup.appendChild(northLabel);
+
+  EMITTERS.forEach(e => {
+    const dist = distanceMeters(currentPosition.latitude, currentPosition.longitude, e.lat, e.lon);
+    if (dist > RADAR_SHOW_BEYOND_M) return; // trop loin pour être utile sur ce cadran
+    const bearing = initialBearingDegrees(currentPosition.latitude, currentPosition.longitude, e.lat, e.lon);
+    const inRange = dist <= RADAR_RANGE_M;
+    const r = Math.min(dist / RADAR_RANGE_M, 1) * RADAR_RADIUS;
+    const p = radarPolarPoint(bearing, r);
+
+    const dot = svgEl("circle", {
+      class: inRange ? "radar-emitter-in" : "radar-emitter-out",
+      cx: p.x, cy: p.y, r: inRange ? 4.5 : 3.5,
+    });
+    const title = svgEl("title", {});
+    title.textContent = `${codeOfEmitter(e)} · ${distanceLabel(dist)}${inRange ? "" : " (hors portée, direction indiquée)"}`;
+    dot.appendChild(title);
+    radarWorldGroup.appendChild(dot);
+
+    // Libellé texte réservé aux émetteurs à portée, pour ne pas surcharger
+    // le cadran avec les nombreux repères hors-portée calés au bord.
+    if (inRange){
+      const label = svgEl("text", { class: "radar-emitter-code", x: p.x, y: p.y - 8, "text-anchor": "middle" });
+      label.textContent = codeOfEmitter(e);
+      radarWorldGroup.appendChild(label);
+    }
+  });
+
+  updateRadarRotation(currentHeading);
+  el("radar-placeholder").classList.add("hidden");
+  el("radar-viz").classList.remove("hidden");
+}
+
+// Appliquée à chaque lecture de boussole : ne fait qu'une écriture d'attribut
+// (rotation du groupe SVG) + une mise à jour de texte, pas de reconstruction
+// du DOM — reste fluide même si les événements arrivent à haute fréquence.
+function updateRadarRotation(heading){
+  const normalized = ((heading % 360) + 360) % 360;
+  el("radar-heading-value").textContent = String(Math.round(normalized)).padStart(3, "0") + "° " + compassPointLabel(normalized);
+  if (!radarWorldGroup) return;
+  radarWorldGroup.setAttribute("transform", `rotate(${-normalized} ${RADAR_CENTER} ${RADAR_CENTER})`);
+}
+
+function onDeviceOrientation(event){
+  let heading = null;
+  if (typeof event.webkitCompassHeading === "number" && !isNaN(event.webkitCompassHeading)){
+    // iOS Safari : cap compas déjà correctement orienté, sens horaire depuis le nord.
+    heading = event.webkitCompassHeading;
+    headingIsAbsolute = true;
+  } else if (typeof event.alpha === "number"){
+    // Android / spec W3C : alpha tourne dans le sens antihoraire -> conversion en cap.
+    heading = (360 - event.alpha) % 360;
+    headingIsAbsolute = !!event.absolute;
+  }
+  if (heading == null || isNaN(heading)) return;
+  currentHeading = heading;
+  if (!radarRotationPending){
+    radarRotationPending = true;
+    requestAnimationFrame(() => {
+      radarRotationPending = false;
+      updateRadarRotation(currentHeading);
+    });
+  }
+}
+
+function attachCompassListeners(){
+  const useAbsolute = "ondeviceorientationabsolute" in window;
+  window.addEventListener(useAbsolute ? "deviceorientationabsolute" : "deviceorientation", onDeviceOrientation, true);
+  compassActive = true;
+  el("btn-compass").disabled = true;
+  el("btn-compass-label").textContent = "Boussole active";
+  el("radar-status-text").textContent = "Si le cap semble incorrect, faites un mouvement en huit avec le téléphone pour la calibrer.";
+}
+
+// Nécessite un geste utilisateur direct (bouton) : iOS 13+ bloque l'accès
+// aux données d'orientation tant que la permission n'a pas été demandée
+// explicitement depuis un clic, et Android profite du même geste pour
+// rappeler le calibrage si besoin.
+async function enableCompass(){
+  if (!compassSupported){
+    el("radar-status-text").textContent = "Boussole non disponible sur cet appareil ou ce navigateur.";
+    return;
+  }
+  if (typeof DeviceOrientationEvent.requestPermission === "function"){
+    try {
+      const state = await DeviceOrientationEvent.requestPermission();
+      if (state !== "granted"){
+        el("radar-status-text").textContent = "Autorisation boussole refusée — activez-la dans les réglages du navigateur pour cette page.";
+        return;
+      }
+    } catch (err) {
+      el("radar-status-text").textContent = "Impossible d'activer la boussole sur cet appareil.";
+      return;
+    }
+  }
+  attachCompassListeners();
+}
+el("btn-compass").addEventListener("click", enableCompass);
+
+/* ======================================================================
+   URGENCES & SECOURS — modale plein écran à 2 onglets.
+   Numéros et contrats ci-dessous : valeurs d'EXEMPLE à remplacer par les
+   vraies coordonnées du club avant mise en ligne. C'est le SEUL endroit à
+   modifier pour personnaliser ce module.
+   ====================================================================== */
+const EMERGENCY_CONFIG = {
+  security:  { name: "Jean Dupont — Responsable Sécurité", phone: "+33600000000", phoneLabel: "06 00 00 00 00" },
+  president: { name: "Marie Martin — Présidente du club",  phone: "+33600000001", phoneLabel: "06 00 00 00 01" },
+  insurance: {
+    label: "Assurance du club (RC & Défense)",
+    phone: "+33800000000", phoneLabel: "0800 00 00 00",
+    email: "assistance@assureur-exemple.fr",
+    policyNumber: "Police collective n° XXXXXXXXX",
+  },
+  repatriation: {
+    francePhone: "+33800000001", franceLabel: "0800 00 00 01",
+    intlPhone: "+33100000000", intlLabel: "+33 1 00 00 00 00",
+    contractNumber: "Contrat rapatriement n° XXXXXXXXX",
+  },
+};
+const LICENSE_STORAGE_KEY = "gra-locator-license-number";
+
+function telHref(phone){ return "tel:" + String(phone).replace(/[^\d+]/g, ""); }
+
+function emergencyCoordRow(label, value){
+  return `<div class="flex items-baseline justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800 last:border-b-0">
+    <span class="flex-none text-[11.5px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${escapeXml(label)}</span>
+    <span class="font-mono font-extrabold text-[clamp(19px,6.6vw,26px)] leading-tight tabular-nums text-right">${escapeXml(value)}</span>
+  </div>`;
+}
+
+// Position GPS affichée en très grand dans l'onglet "Secours vitaux" —
+// réutilise directement currentPosition, mis à jour par startGeolocation().
+function renderEmergencyPosition(){
+  const body = el("emergency-position-body");
+  if (!body) return;
+  if (!currentPosition){
+    body.innerHTML = `<p class="text-[13px] text-slate-400 dark:text-slate-500 py-3 text-center">En attente de la position GPS…</p>`;
+    return;
+  }
+  const { latitude, longitude, accuracy, altitude } = currentPosition;
+  body.innerHTML = [
+    emergencyCoordRow("Latitude", formatDDAbs(latitude) + " " + hemisphereOf(latitude, true)),
+    emergencyCoordRow("Longitude", formatDDAbs(longitude) + " " + hemisphereOf(longitude, false)),
+    emergencyCoordRow("Altitude", altitude != null ? Math.round(altitude) + " m" : "—"),
+    emergencyCoordRow("Précision", accuracy != null ? "±" + Math.round(accuracy) + " m" : "—"),
+  ].join("");
+}
+
+// Corps du SMS pré-rempli pour le 114 (numéro d'urgence par SMS, pour les
+// personnes sourdes ou malentendantes — utile aussi si le réseau ne permet
+// qu'un SMS et pas d'appel voix).
+function emergencySmsBody(){
+  const { latitude, longitude, accuracy, altitude } = currentPosition;
+  const prec = accuracy != null ? Math.round(accuracy) : "?";
+  const alt = altitude != null ? Math.round(altitude) : "?";
+  return `URGENCE - Coordonnées : ${latitude.toFixed(5)}, ${longitude.toFixed(5)} (Précision : ${prec}m, Alt. : ${alt}m) - Besoin d'assistance.`;
+}
+
+// iOS et Android n'utilisent pas le même séparateur pour préremplir le corps
+// d'un SMS via une URI sms: (particularité connue et toujours d'actualité).
+function smsHrefFor(number, body){
+  const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
+  return `sms:${number}${isIOS ? "&" : "?"}body=${encodeURIComponent(body)}`;
+}
+
+el("btn-sms-114").addEventListener("click", () => {
+  if (!currentPosition){
+    showToast("En attente de la position GPS avant l'envoi", "error");
+    return;
+  }
+  window.location.href = smsHrefFor("114", emergencySmsBody());
+});
+
+/* ---------- Onglet "Contacts & Assurances" ---------- */
+function emergencyCallRow(title, subtitle, telHrefValue){
+  return `<a href="${telHrefValue}" class="min-h-[48px] w-full inline-flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 active:scale-[0.98] transition">
+    <span class="flex-none w-9 h-9 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">${icon("phone", "w-4 h-4")}</span>
+    <span class="flex-1 min-w-0 text-left">
+      <span class="block text-[13px] font-bold truncate">${escapeXml(title)}</span>
+      <span class="block text-[12px] text-slate-500 dark:text-slate-400 truncate">${escapeXml(subtitle)}</span>
+    </span>
+    <span class="flex-none font-mono text-[11px] font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">Appeler</span>
+  </a>`;
+}
+function emergencyMailRow(title, subtitle, mailHref){
+  return `<a href="${mailHref}" class="min-h-[48px] w-full inline-flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 active:scale-[0.98] transition">
+    <span class="flex-none w-9 h-9 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">${icon("mail", "w-4 h-4")}</span>
+    <span class="flex-1 min-w-0 text-left">
+      <span class="block text-[13px] font-bold truncate">${escapeXml(title)}</span>
+      <span class="block text-[12px] text-slate-500 dark:text-slate-400 truncate">${escapeXml(subtitle)}</span>
+    </span>
+    <span class="flex-none font-mono text-[11px] font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">Écrire</span>
+  </a>`;
+}
+function emergencyCard(title, innerHtml){
+  return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+    <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">${escapeXml(title)}</span>
+    ${innerHtml}
+  </div>`;
+}
+function emergencyLabelBlock(label, value){
+  return `<div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+    <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">${escapeXml(label)}</span>
+    <span class="block font-mono font-bold text-[15px] leading-snug">${escapeXml(value)}</span>
+  </div>`;
+}
+const ROW_GAP = '<div class="h-2.5"></div>';
+const CARD_GAP = '<div class="h-3.5"></div>';
+
+// Construit l'onglet "Contacts & Assurances" une seule fois, à partir de
+// EMERGENCY_CONFIG. Le contenu est statique (hors n° de licence) : pas
+// besoin de le reconstruire à chaque ouverture de la modale.
+function renderEmergencyContacts(){
+  const cfg = EMERGENCY_CONFIG;
+  el("emergency-contacts-body").innerHTML = [
+    emergencyCard("Contacts de crise du club", [
+      emergencyCallRow(cfg.security.name, cfg.security.phoneLabel, telHref(cfg.security.phone)),
+      emergencyCallRow(cfg.president.name, cfg.president.phoneLabel, telHref(cfg.president.phone)),
+    ].join(ROW_GAP)),
+
+    emergencyCard(cfg.insurance.label, [
+      emergencyCallRow("Assistance assureur", cfg.insurance.phoneLabel, telHref(cfg.insurance.phone)),
+      emergencyMailRow("Courriel assureur", cfg.insurance.email, "mailto:" + cfg.insurance.email),
+    ].join(ROW_GAP) + emergencyLabelBlock("N° de contrat / police", cfg.insurance.policyNumber)),
+
+    `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+      <label for="input-license" class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Mon n° de licence / adhérent</label>
+      <input id="input-license" type="text" inputmode="text" autocomplete="off" placeholder="Ex. : 012345678" class="w-full min-h-[48px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 font-mono font-bold text-[16px] text-slate-900 dark:text-white placeholder:font-sans placeholder:font-normal placeholder:text-slate-400" />
+      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2">Enregistré automatiquement sur cet appareil, disponible hors-ligne.</p>
+    </div>`,
+
+    emergencyCard("Rapatriement & mutuelle", [
+      emergencyCallRow("Assistance rapatriement France", cfg.repatriation.franceLabel, telHref(cfg.repatriation.francePhone)),
+      emergencyCallRow("Assistance rapatriement Étranger", cfg.repatriation.intlLabel, telHref(cfg.repatriation.intlPhone)),
+    ].join(ROW_GAP) + emergencyLabelBlock("N° de contrat rapatriement", cfg.repatriation.contractNumber)),
+  ].join(CARD_GAP);
+
+  // Persistance locale (hors-ligne) du n° de licence personnel.
+  const licenseInput = el("input-license");
+  try { licenseInput.value = localStorage.getItem(LICENSE_STORAGE_KEY) || ""; } catch (err) {}
+  licenseInput.addEventListener("input", () => {
+    try { localStorage.setItem(LICENSE_STORAGE_KEY, licenseInput.value); } catch (err) {}
+  });
+}
+renderEmergencyContacts();
+
+/* ---------- Verrouillage par code PIN (onglet "Contacts & Assurances") ----------
+   Code par défaut ci-dessous — modifiez UNIQUEMENT cette valeur pour changer
+   le code encadrant. Une fois saisi correctement, l'appareil s'en souvient
+   (localStorage) et ne le redemande plus, jusqu'à un verrouillage manuel. */
+const EMERGENCY_PIN = "38000";
+const EMERGENCY_UNLOCK_KEY = "gra-locator-emergency-unlocked";
+const PIN_DOT_EMPTY = "w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600";
+const PIN_DOT_FILLED = "w-3.5 h-3.5 rounded-full bg-brand-500 dark:bg-brand-400 border-2 border-brand-500 dark:border-brand-400";
+let pinBuffer = "";
+
+function renderPinDots(){
+  const dots = el("pin-dots").children;
+  for (let i = 0; i < dots.length; i++) dots[i].className = i < pinBuffer.length ? PIN_DOT_FILLED : PIN_DOT_EMPTY;
+}
+
+function pinKeyPress(digit){
+  if (pinBuffer.length >= EMERGENCY_PIN.length) return;
+  pinBuffer += digit;
+  el("pin-error").textContent = "";
+  renderPinDots();
+  if (pinBuffer.length === EMERGENCY_PIN.length){
+    if (pinBuffer === EMERGENCY_PIN){
+      unlockEmergencyContacts();
+    } else {
+      el("pin-error").textContent = "Code incorrect, réessayez.";
+      pinBuffer = "";
+      renderPinDots();
+    }
+  }
+}
+function pinBackspace(){
+  pinBuffer = pinBuffer.slice(0, -1);
+  el("pin-error").textContent = "";
+  renderPinDots();
+}
+function pinClear(){
+  pinBuffer = "";
+  el("pin-error").textContent = "";
+  renderPinDots();
+}
+el("pin-keypad").addEventListener("click", (ev) => {
+  const btn = ev.target.closest(".pin-key");
+  if (!btn) return;
+  if (btn.dataset.digit != null) pinKeyPress(btn.dataset.digit);
+  else if (btn.dataset.action === "backspace") pinBackspace();
+  else if (btn.dataset.action === "clear") pinClear();
+});
+
+function unlockEmergencyContacts(){
+  try { localStorage.setItem(EMERGENCY_UNLOCK_KEY, "1"); } catch (err) {}
+  pinBuffer = "";
+  el("emergency-pin-gate").classList.add("hidden");
+  el("emergency-contacts-unlocked").classList.remove("hidden");
+}
+function lockEmergencyContacts(){
+  try { localStorage.removeItem(EMERGENCY_UNLOCK_KEY); } catch (err) {}
+  pinBuffer = "";
+  renderPinDots();
+  el("pin-error").textContent = "";
+  el("emergency-contacts-unlocked").classList.add("hidden");
+  el("emergency-pin-gate").classList.remove("hidden");
+}
+el("btn-emergency-lock").addEventListener("click", lockEmergencyContacts);
+
+// Reflète l'état verrouillé/déverrouillé mémorisé à chaque ouverture de la
+// modale (un encadrant qui a déjà saisi le code une fois n'a plus à le
+// ressaisir sur cet appareil).
+function syncEmergencyLockUI(){
+  let unlocked = false;
+  try { unlocked = localStorage.getItem(EMERGENCY_UNLOCK_KEY) === "1"; } catch (err) {}
+  if (unlocked){
+    el("emergency-pin-gate").classList.add("hidden");
+    el("emergency-contacts-unlocked").classList.remove("hidden");
+  } else {
+    pinBuffer = "";
+    renderPinDots();
+    el("pin-error").textContent = "";
+    el("emergency-contacts-unlocked").classList.add("hidden");
+    el("emergency-pin-gate").classList.remove("hidden");
+  }
+}
+
+/* ---------- Modale : ouverture / fermeture / bascule d'onglet ---------- */
+const EMERGENCY_TAB_ACTIVE = "flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12.5px] font-bold transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm";
+const EMERGENCY_TAB_INACTIVE = "flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12.5px] font-bold transition text-slate-500 dark:text-slate-400";
+
+function switchEmergencyTab(which){
+  el("emergency-tab-vital").className = which === "vital" ? EMERGENCY_TAB_ACTIVE : EMERGENCY_TAB_INACTIVE;
+  el("emergency-tab-contacts").className = which === "contacts" ? EMERGENCY_TAB_ACTIVE : EMERGENCY_TAB_INACTIVE;
+  el("emergency-page-vital").classList.toggle("hidden", which !== "vital");
+  el("emergency-page-contacts").classList.toggle("hidden", which !== "contacts");
+}
+
+function openEmergencyModal(){
+  renderEmergencyPosition();
+  switchEmergencyTab("vital");
+  syncEmergencyLockUI();
+  el("emergency-modal").classList.remove("hidden");
+  el("emergency-modal").classList.add("flex");
+  document.body.style.overflow = "hidden";
+}
+function closeEmergencyModal(){
+  el("emergency-modal").classList.add("hidden");
+  el("emergency-modal").classList.remove("flex");
+  document.body.style.overflow = "";
+}
+el("btn-sos").addEventListener("click", openEmergencyModal);
+el("btn-sos-fab").addEventListener("click", openEmergencyModal);
+el("btn-emergency-close").addEventListener("click", closeEmergencyModal);
+el("emergency-tab-vital").addEventListener("click", () => switchEmergencyTab("vital"));
+el("emergency-tab-contacts").addEventListener("click", () => switchEmergencyTab("contacts"));
+
 /* ---------- Fiche détail ---------- */
+function sheetRow(iconName, label, value){
+  return `
+    <div class="flex items-start gap-3">
+      <span class="flex-none w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center mt-0.5">${icon(iconName, "w-4 h-4")}</span>
+      <span class="flex-1 min-w-0">
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${escapeXml(label)}</span>
+        <span class="block font-mono text-[14px] mt-0.5">${escapeXml(value)}</span>
+      </span>
+    </div>
+  `;
+}
+
 function openSheet(r){
   const e = r.emitter;
   el("sheet-title").textContent = e.name;
   const tags = [];
   if (e.reseau) tags.push("Réseau " + e.reseau);
   if (e.massif) tags.push("Massif " + e.massif);
-  el("sheet-tags").innerHTML = tags.map(t => `<span class="tag">${escapeXml(t)}</span>`).join("");
+  el("sheet-tags").innerHTML = tags.map(t => `<span class="font-mono text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">${escapeXml(t)}</span>`).join("");
 
   const rows = [
-    ["Distance", distanceLabel(r.distanceMeters)],
-    ["Azimut", azimuthLabel(r.azimuthDegrees) + (referenceIsGPS ? " depuis vous" : " depuis le point choisi")],
+    sheetRow("ruler", "Distance", distanceLabel(r.distanceMeters)),
+    sheetRow("compass", "Azimut", azimuthLabel(r.azimuthDegrees) + (referenceIsGPS ? " depuis vous" : " depuis le point choisi")),
   ];
-  if (e.altitude != null) rows.push(["Altitude", Math.round(e.altitude) + " m"]);
-  if (e.code) rows.push(["Code", e.code]);
-  el("sheet-grid").innerHTML = rows.map(([label, value]) => `
-    <div class="sheet-row">
-      <span class="label">${escapeXml(label)}</span>
-      <span class="value">${escapeXml(value)}</span>
-    </div>
-  `).join("");
+  if (e.altitude != null) rows.push(sheetRow("mountain", "Altitude", Math.round(e.altitude) + " m"));
+  if (e.code) rows.push(sheetRow("radioTower", "Code", e.code));
+  el("sheet-grid").innerHTML = rows.join("");
 
   el("backdrop").classList.add("open");
   el("sheet").classList.add("open");

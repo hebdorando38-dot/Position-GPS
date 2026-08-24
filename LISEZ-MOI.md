@@ -22,14 +22,18 @@ d'utilisateur. Gratuit.
 1. Sur la page du dépôt tout neuf, cliquez **"uploading an existing file"**
    (ou le bouton "Add file" → "Upload files").
 2. Ouvrez ce dossier sur votre ordinateur et **glissez-déposez tous les
-   fichiers et le dossier `images`** : `index.html`, `manifest.json`, `sw.js`,
-   `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `club-logo.png`,
-   `leaflet.js`, `leaflet.css`, et le dossier `images` (glissez-le tel quel,
+   fichiers ainsi que les dossiers `images` et `fonts`** : `index.html`,
+   `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`,
+   `icon-maskable-512.png`, `club-logo.png`, `leaflet.js`, `leaflet.css`,
+   `tailwind.js`, et les dossiers `images` et `fonts` (glissez-les tels quels,
    GitHub conserve la structure des dossiers).
 3. En bas de page, cliquez **"Commit changes"**.
 
-Ces trois derniers fichiers (`leaflet.js`, `leaflet.css`, `images/`) font
-fonctionner le fond de carte sous le diagramme.
+`leaflet.js`, `leaflet.css` et `images/` font fonctionner le fond de carte.
+`tailwind.js` et le dossier `fonts/` font fonctionner l'habillage visuel
+(styles et polices Inter / JetBrains Mono) — comme tout le reste, ils sont
+inclus dans ce dossier et ne nécessitent aucune connexion une fois mis en
+cache.
 
 ## Étape 4 — Activer GitHub Pages
 

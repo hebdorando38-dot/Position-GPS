@@ -1,6 +1,6 @@
 {
-  "name": "GPS - GRA",
-  "short_name": "GPS - GRA",
+  "name": "SOS CAFGI — Position GPS & Secours",
+  "short_name": "SOS CAFGI",
   "description": "Position GPS et 6 émetteurs du Grand Réseau des Alpes les plus proches — Club Alpin Français Grenoble Isère. 100% hors-ligne.",
   "start_url": "./index.html",
   "scope": "./",
