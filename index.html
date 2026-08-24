@@ -140,8 +140,7 @@
   .coord-row{ display:flex; align-items:baseline; justify-content:flex-end; gap:0.3em; }
   .coord-val{ min-width:11ch; text-align:right; font-variant-numeric:tabular-nums; }
 
-  /* ---------- Barre d'onglets fixe en bas d'écran ---------- */
-  #bottom-nav{ padding-bottom:env(safe-area-inset-bottom); }
+  /* ---------- Barre d'onglets — sous le titre, dans l'en-tête collé en haut ---------- */
   .nav-tab{ color:theme(colors.slate.400); transition:color .15s; }
   .nav-tab.active{ color:var(--color-brand-500); }
   .nav-tab.nav-tab-emergency{ color:theme(colors.club-red.400,var(--color-club-red-400)); opacity:.85; }
@@ -172,21 +171,45 @@
 </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased min-h-screen">
-<div id="app" class="max-w-[520px] mx-auto px-4" style="padding-bottom:calc(60px + env(safe-area-inset-bottom) + 18px);">
+<div id="app" class="max-w-[520px] mx-auto px-4" style="padding-bottom:calc(env(safe-area-inset-bottom) + 20px);">
 
-  <!-- ===== En-tête ===== -->
-  <div class="sticky top-0 z-10 -mx-4 px-4 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur border-b border-slate-200 dark:border-slate-800 py-3.5 flex items-center gap-2.5">
-    <span class="flex-none w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center p-1">
-      <img src="club-logo.png" alt="Club Alpin Français Grenoble Isère" class="w-full h-full object-contain" />
-    </span>
-    <div class="min-w-0">
-      <h1 class="font-sans text-[21px] font-extrabold tracking-tight leading-none whitespace-nowrap">
-        SOS <span class="text-brand-500 dark:text-brand-400">CAFGI</span>
-      </h1>
-      <div class="text-[10.5px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
-        CAF Grenoble Isère <span class="text-slate-300 dark:text-slate-700">·</span> <span id="dataset-pill" class="normal-case font-mono font-semibold tracking-normal">— émetteurs</span>
+  <!-- ===== En-tête + barre d'onglets (regroupés, collés en haut d'écran) ===== -->
+  <div class="sticky top-0 z-30 -mx-4 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+    <div class="px-4 py-3 flex items-center gap-2.5">
+      <span class="flex-none w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center p-1">
+        <img src="club-logo.png" alt="Club Alpin Français Grenoble Isère" class="w-full h-full object-contain" />
+      </span>
+      <div class="min-w-0">
+        <h1 class="font-sans text-[21px] font-extrabold tracking-tight leading-none whitespace-nowrap">
+          SOS <span class="text-brand-500 dark:text-brand-400">CAFGI</span>
+        </h1>
+        <div class="text-[10.5px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
+          CAF Grenoble Isère <span class="text-slate-300 dark:text-slate-700">·</span> <span id="dataset-pill" class="normal-case font-mono font-semibold tracking-normal">— émetteurs</span>
+        </div>
       </div>
     </div>
+
+    <!-- ===== Barre d'onglets — juste sous le titre, toujours visible ===== -->
+    <nav id="bottom-nav" class="border-t border-slate-200 dark:border-slate-800">
+      <div class="grid grid-cols-4 h-[54px]">
+        <button class="nav-tab active flex flex-col items-center justify-center gap-0.5" data-tab="position" aria-label="Position">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+          <span class="text-[10px] font-bold">Position</span>
+        </button>
+        <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="radar" aria-label="Radar">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
+          <span class="text-[10px] font-bold">Radar</span>
+        </button>
+        <button class="nav-tab nav-tab-emergency flex flex-col items-center justify-center gap-0.5" data-tab="secours" aria-label="Secours">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/></svg>
+          <span class="text-[10px] font-bold">Secours</span>
+        </button>
+        <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="preferences" aria-label="Préférences">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="text-[10px] font-bold">Préférences</span>
+        </button>
+      </div>
+    </nav>
   </div>
 
   <!-- ===== Onglet 1 : Position ===== -->
@@ -246,7 +269,7 @@
 
     <div class="mt-4">
       <div class="flex items-center justify-between gap-2 mb-1.5">
-        <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Émetteurs triés par distance</span>
+        <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Émetteurs dans le radar <span id="radar-list-range-hint"></span></span>
         <span class="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex-none"><span class="radar-align-dot flex-none"></span>Aligné</span>
       </div>
       <div id="radar-list" class="grid gap-2"></div>
@@ -408,28 +431,6 @@
 
   <footer class="mt-7 mb-2 text-[11px] text-slate-400 dark:text-slate-600 text-center">Fonctionne entièrement hors-ligne · aucune donnée envoyée sur le réseau</footer>
 </div>
-
-<!-- ===== Barre d'onglets fixe (thumb-friendly, 60px + zone de sécurité iOS) ===== -->
-<nav id="bottom-nav" class="fixed left-0 right-0 bottom-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800">
-  <div class="max-w-[520px] mx-auto grid grid-cols-4 h-[60px]">
-    <button class="nav-tab active flex flex-col items-center justify-center gap-0.5" data-tab="position" aria-label="Position">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
-      <span class="text-[10px] font-bold">Position</span>
-    </button>
-    <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="radar" aria-label="Radar">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
-      <span class="text-[10px] font-bold">Radar</span>
-    </button>
-    <button class="nav-tab nav-tab-emergency flex flex-col items-center justify-center gap-0.5" data-tab="secours" aria-label="Secours">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/></svg>
-      <span class="text-[10px] font-bold">Secours</span>
-    </button>
-    <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="preferences" aria-label="Préférences">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
-      <span class="text-[10px] font-bold">Préférences</span>
-    </button>
-  </div>
-</nav>
 
 <div id="backdrop" class="fixed inset-0 bg-black/40 z-20 opacity-0 pointer-events-none transition-opacity duration-150"></div>
 <div id="sheet" class="fixed left-0 right-0 bottom-0 z-40 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 rounded-t-2xl px-5 pt-2.5 pb-7 max-w-[520px] mx-auto translate-y-full transition-transform duration-200 max-h-[70vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
@@ -656,7 +657,7 @@ function showToast(message, kind){
   toast.className = "fixed left-1/2 z-40 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-[13px] font-semibold transition-all duration-200 " +
     (isError ? "bg-club-red-500 text-white" : "bg-slate-900 dark:bg-white text-white dark:text-slate-900") +
     " opacity-0 pointer-events-none";
-  toast.style.bottom = "calc(60px + env(safe-area-inset-bottom) + 16px)";
+  toast.style.bottom = "calc(env(safe-area-inset-bottom) + 20px)";
   toast.style.transform = "translate(-50%, 8px)";
   requestAnimationFrame(() => {
     toast.classList.remove("opacity-0");
@@ -1031,22 +1032,35 @@ function renderRadarMarkers(){
   el("radar-viz").classList.remove("hidden");
 }
 
-// Liste complète des émetteurs, triée par distance croissante — indépendante
-// de la portée du radar (celle-ci ne limite que le cadran SVG ci-dessus).
+// Liste des émetteurs affichés sur le cadran radar, triée par distance
+// croissante — restreinte à la même portée que le cadran SVG (réglage
+// Préférences), pour que la liste corresponde toujours exactement à ce qui
+// est visible dans le radar (pas d'émetteur listé mais absent du cadran).
 function renderRadarList(){
   const container = el("radar-list");
+  el("radar-list-range-hint").textContent = "(≤ " + distanceLabel(RADAR_RANGE_M) + ")";
+
   if (!currentPosition){
     container.innerHTML = "";
+    el("radar-list-empty").textContent = "En attente de la position GPS…";
     el("radar-list-empty").classList.remove("hidden");
     return;
   }
-  el("radar-list-empty").classList.add("hidden");
 
   const results = EMITTERS.map(e => ({
     emitter: e,
     distanceMeters: distanceMeters(currentPosition.latitude, currentPosition.longitude, e.lat, e.lon),
     azimuthDegrees: initialBearingDegrees(currentPosition.latitude, currentPosition.longitude, e.lat, e.lon),
-  })).sort((a, b) => a.distanceMeters - b.distanceMeters);
+  })).filter(r => r.distanceMeters <= RADAR_RANGE_M)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+  if (!results.length){
+    container.innerHTML = "";
+    el("radar-list-empty").textContent = "Aucun émetteur dans la portée sélectionnée — augmentez la portée du radar dans Préférences.";
+    el("radar-list-empty").classList.remove("hidden");
+    return;
+  }
+  el("radar-list-empty").classList.add("hidden");
 
   container.innerHTML = "";
   results.forEach(r => {
@@ -1158,6 +1172,7 @@ function setRadarRange(meters, persist){
   paintSegment("radar-range-toggle", "range", meters);
   radarBuilt = false; // force la reconstruction des anneaux à la nouvelle échelle
   if (currentPosition) renderRadarMarkers();
+  renderRadarList(); // la liste suit la même portée que le cadran (voir plus haut)
 }
 el("radar-range-toggle").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-range]");
