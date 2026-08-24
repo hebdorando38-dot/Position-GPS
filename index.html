@@ -140,8 +140,7 @@
   .coord-row{ display:flex; align-items:baseline; justify-content:flex-end; gap:0.3em; }
   .coord-val{ min-width:11ch; text-align:right; font-variant-numeric:tabular-nums; }
 
-  /* ---------- Barre d'onglets fixe en bas d'écran ---------- */
-  #bottom-nav{ padding-bottom:env(safe-area-inset-bottom); }
+  /* ---------- Barre d'onglets — sous le titre, dans l'en-tête collé en haut ---------- */
   .nav-tab{ color:theme(colors.slate.400); transition:color .15s; }
   .nav-tab.active{ color:var(--color-brand-500); }
   .nav-tab.nav-tab-emergency{ color:theme(colors.club-red.400,var(--color-club-red-400)); opacity:.85; }
@@ -172,21 +171,45 @@
 </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased min-h-screen">
-<div id="app" class="max-w-[520px] mx-auto px-4" style="padding-bottom:calc(60px + env(safe-area-inset-bottom) + 18px);">
+<div id="app" class="max-w-[520px] mx-auto px-4" style="padding-bottom:calc(env(safe-area-inset-bottom) + 20px);">
 
-  <!-- ===== En-tête ===== -->
-  <div class="sticky top-0 z-10 -mx-4 px-4 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur border-b border-slate-200 dark:border-slate-800 py-3.5 flex items-center gap-2.5">
-    <span class="flex-none w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center p-1">
-      <img src="club-logo.png" alt="Club Alpin Français Grenoble Isère" class="w-full h-full object-contain" />
-    </span>
-    <div class="min-w-0">
-      <h1 class="font-sans text-[21px] font-extrabold tracking-tight leading-none whitespace-nowrap">
-        SOS <span class="text-brand-500 dark:text-brand-400">CAFGI</span>
-      </h1>
-      <div class="text-[10.5px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
-        CAF Grenoble Isère <span class="text-slate-300 dark:text-slate-700">·</span> <span id="dataset-pill" class="normal-case font-mono font-semibold tracking-normal">— émetteurs</span>
+  <!-- ===== En-tête + barre d'onglets (regroupés, collés en haut d'écran) ===== -->
+  <div class="sticky top-0 z-30 -mx-4 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+    <div class="px-4 py-3 flex items-center gap-2.5">
+      <span class="flex-none w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center p-1">
+        <img src="club-logo.png" alt="Club Alpin Français Grenoble Isère" class="w-full h-full object-contain" />
+      </span>
+      <div class="min-w-0">
+        <h1 class="font-sans text-[21px] font-extrabold tracking-tight leading-none whitespace-nowrap">
+          SOS <span class="text-brand-500 dark:text-brand-400">CAFGI</span>
+        </h1>
+        <div class="text-[10.5px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
+          CAF Grenoble Isère <span class="text-slate-300 dark:text-slate-700">·</span> <span id="dataset-pill" class="normal-case font-mono font-semibold tracking-normal">— émetteurs</span>
+        </div>
       </div>
     </div>
+
+    <!-- ===== Barre d'onglets — juste sous le titre, toujours visible ===== -->
+    <nav id="bottom-nav" class="border-t border-slate-200 dark:border-slate-800">
+      <div class="grid grid-cols-4 h-[54px]">
+        <button class="nav-tab active flex flex-col items-center justify-center gap-0.5" data-tab="position" aria-label="Position">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+          <span class="text-[10px] font-bold">Position</span>
+        </button>
+        <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="radar" aria-label="Radar">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
+          <span class="text-[10px] font-bold">Radar</span>
+        </button>
+        <button class="nav-tab nav-tab-emergency flex flex-col items-center justify-center gap-0.5" data-tab="secours" aria-label="Secours">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/></svg>
+          <span class="text-[10px] font-bold">Secours</span>
+        </button>
+        <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="preferences" aria-label="Préférences">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="text-[10px] font-bold">Préférences</span>
+        </button>
+      </div>
+    </nav>
   </div>
 
   <!-- ===== Onglet 1 : Position ===== -->
@@ -246,7 +269,7 @@
 
     <div class="mt-4">
       <div class="flex items-center justify-between gap-2 mb-1.5">
-        <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Émetteurs triés par distance</span>
+        <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Émetteurs dans le radar <span id="radar-list-range-hint"></span></span>
         <span class="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex-none"><span class="radar-align-dot flex-none"></span>Aligné</span>
       </div>
       <div id="radar-list" class="grid gap-2"></div>
@@ -380,6 +403,16 @@
     </div>
 
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Format des coordonnées</span>
+      <div id="coord-format-toggle" class="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+        <button data-format="dd" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">Degrés déc.</button>
+        <button data-format="dms" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">DMS</button>
+        <button data-format="utm" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">UTM</button>
+      </div>
+      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2.5">Jeu de coordonnées affiché dans l'onglet Position et dans Secours vitaux.</p>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Portée du radar</span>
       <div id="radar-range-toggle" class="grid grid-cols-5 gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
         <button data-range="2000" class="flex-1 rounded-lg py-2.5 text-[11px] font-bold transition">2 km</button>
@@ -408,28 +441,6 @@
 
   <footer class="mt-7 mb-2 text-[11px] text-slate-400 dark:text-slate-600 text-center">Fonctionne entièrement hors-ligne · aucune donnée envoyée sur le réseau</footer>
 </div>
-
-<!-- ===== Barre d'onglets fixe (thumb-friendly, 60px + zone de sécurité iOS) ===== -->
-<nav id="bottom-nav" class="fixed left-0 right-0 bottom-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800">
-  <div class="max-w-[520px] mx-auto grid grid-cols-4 h-[60px]">
-    <button class="nav-tab active flex flex-col items-center justify-center gap-0.5" data-tab="position" aria-label="Position">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
-      <span class="text-[10px] font-bold">Position</span>
-    </button>
-    <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="radar" aria-label="Radar">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
-      <span class="text-[10px] font-bold">Radar</span>
-    </button>
-    <button class="nav-tab nav-tab-emergency flex flex-col items-center justify-center gap-0.5" data-tab="secours" aria-label="Secours">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/></svg>
-      <span class="text-[10px] font-bold">Secours</span>
-    </button>
-    <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="preferences" aria-label="Préférences">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
-      <span class="text-[10px] font-bold">Préférences</span>
-    </button>
-  </div>
-</nav>
 
 <div id="backdrop" class="fixed inset-0 bg-black/40 z-20 opacity-0 pointer-events-none transition-opacity duration-150"></div>
 <div id="sheet" class="fixed left-0 right-0 bottom-0 z-40 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 rounded-t-2xl px-5 pt-2.5 pb-7 max-w-[520px] mx-auto translate-y-full transition-transform duration-200 max-h-[70vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
@@ -656,7 +667,7 @@ function showToast(message, kind){
   toast.className = "fixed left-1/2 z-40 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-[13px] font-semibold transition-all duration-200 " +
     (isError ? "bg-club-red-500 text-white" : "bg-slate-900 dark:bg-white text-white dark:text-slate-900") +
     " opacity-0 pointer-events-none";
-  toast.style.bottom = "calc(60px + env(safe-area-inset-bottom) + 16px)";
+  toast.style.bottom = "calc(env(safe-area-inset-bottom) + 20px)";
   toast.style.transform = "translate(-50%, 8px)";
   requestAnimationFrame(() => {
     toast.classList.remove("opacity-0");
@@ -711,9 +722,43 @@ el("position-body").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); copyCoordinates(); }
 });
 
+/* ---------- Format des coordonnées (Préférences) ----------
+   Un seul jeu de coordonnées à la fois — Degrés déc. / DMS / UTM — utilisé
+   à la fois par l'onglet Position et par "Secours vitaux". Réglage réparti
+   par défaut sur UTM au tout premier lancement (avant toute préférence
+   enregistrée), conformément à la demande. */
+const COORD_FORMAT_KEY = "gra-locator-coord-format";
+const COORD_FORMAT_OPTIONS = ["dd", "dms", "utm"];
+let coordFormat = "utm";
+function loadCoordFormatPreference(){
+  try {
+    const stored = localStorage.getItem(COORD_FORMAT_KEY);
+    if (COORD_FORMAT_OPTIONS.includes(stored)) coordFormat = stored;
+  } catch (err) {}
+}
+loadCoordFormatPreference();
+
+function coordFormatLabel(format){
+  return format === "dd" ? "Degrés déc." : format === "dms" ? "DMS" : "UTM";
+}
+
 /* ---------- Onglet Position ---------- */
 function coordRow(value, letter){
   return `<div class="coord-row"><span class="coord-val font-mono font-bold text-[clamp(23px,7.6vw,32px)] leading-tight">${value}</span>${letter ? `<span class="flex-none font-mono font-extrabold text-[clamp(17px,5.6vw,23px)] leading-tight text-brand-500 dark:text-brand-400">${letter}</span>` : ""}</div>`;
+}
+
+// Lignes de coordonnées pour le format actuellement choisi — réutilisées
+// telles quelles par l'onglet Position (coordRow) et par Secours vitaux
+// (emergencyCoordRow, voir plus bas) via leurs propres fonctions d'appel.
+function coordinateRowsHtml(format, latitude, longitude){
+  if (format === "dd"){
+    return coordRow(formatDDAbs(latitude), hemisphereOf(latitude, true)) + coordRow(formatDDAbs(longitude), hemisphereOf(longitude, false));
+  }
+  if (format === "dms"){
+    return coordRow(toDMSAbs(latitude), hemisphereOf(latitude, true)) + coordRow(toDMSAbs(longitude), hemisphereOf(longitude, false));
+  }
+  const utm = toUTM(latitude, longitude);
+  return coordRow(utm.zone + utm.hemisphere) + coordRow(Math.round(utm.easting) + " m", "E") + coordRow(Math.round(utm.northing) + " m", "N");
 }
 
 // Seuils de précision GPS typiques en usage rando/montagne.
@@ -731,28 +776,13 @@ const ACCURACY_STYLES = {
 
 function renderPosition(pos){
   const { latitude, longitude, accuracy } = pos;
-  const utm = toUTM(latitude, longitude);
   const tier = accuracyTier(accuracy);
   const badge = tier ? ACCURACY_STYLES[tier] : null;
 
   el("position-body").innerHTML = `
-    <div class="mt-3 grid gap-4">
-      <div class="pb-4 border-b border-slate-100 dark:border-slate-800">
-        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">Degrés déc.</span>
-        ${coordRow(formatDDAbs(latitude), hemisphereOf(latitude, true))}
-        ${coordRow(formatDDAbs(longitude), hemisphereOf(longitude, false))}
-      </div>
-      <div class="pb-4 border-b border-slate-100 dark:border-slate-800">
-        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">DMS</span>
-        ${coordRow(toDMSAbs(latitude), hemisphereOf(latitude, true))}
-        ${coordRow(toDMSAbs(longitude), hemisphereOf(longitude, false))}
-      </div>
-      <div>
-        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">UTM</span>
-        ${coordRow(utm.zone + utm.hemisphere)}
-        ${coordRow(Math.round(utm.easting) + " m", "E")}
-        ${coordRow(Math.round(utm.northing) + " m", "N")}
-      </div>
+    <div class="mt-3">
+      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">${coordFormatLabel(coordFormat)}</span>
+      ${coordinateRowsHtml(coordFormat, latitude, longitude)}
     </div>
     ${badge != null && accuracy != null ? `
       <div class="mt-4 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-bold ${badge.classes}">
@@ -1031,22 +1061,35 @@ function renderRadarMarkers(){
   el("radar-viz").classList.remove("hidden");
 }
 
-// Liste complète des émetteurs, triée par distance croissante — indépendante
-// de la portée du radar (celle-ci ne limite que le cadran SVG ci-dessus).
+// Liste des émetteurs affichés sur le cadran radar, triée par distance
+// croissante — restreinte à la même portée que le cadran SVG (réglage
+// Préférences), pour que la liste corresponde toujours exactement à ce qui
+// est visible dans le radar (pas d'émetteur listé mais absent du cadran).
 function renderRadarList(){
   const container = el("radar-list");
+  el("radar-list-range-hint").textContent = "(≤ " + distanceLabel(RADAR_RANGE_M) + ")";
+
   if (!currentPosition){
     container.innerHTML = "";
+    el("radar-list-empty").textContent = "En attente de la position GPS…";
     el("radar-list-empty").classList.remove("hidden");
     return;
   }
-  el("radar-list-empty").classList.add("hidden");
 
   const results = EMITTERS.map(e => ({
     emitter: e,
     distanceMeters: distanceMeters(currentPosition.latitude, currentPosition.longitude, e.lat, e.lon),
     azimuthDegrees: initialBearingDegrees(currentPosition.latitude, currentPosition.longitude, e.lat, e.lon),
-  })).sort((a, b) => a.distanceMeters - b.distanceMeters);
+  })).filter(r => r.distanceMeters <= RADAR_RANGE_M)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+  if (!results.length){
+    container.innerHTML = "";
+    el("radar-list-empty").textContent = "Aucun émetteur dans la portée sélectionnée — augmentez la portée du radar dans Préférences.";
+    el("radar-list-empty").classList.remove("hidden");
+    return;
+  }
+  el("radar-list-empty").classList.add("hidden");
 
   container.innerHTML = "";
   results.forEach(r => {
@@ -1158,6 +1201,7 @@ function setRadarRange(meters, persist){
   paintSegment("radar-range-toggle", "range", meters);
   radarBuilt = false; // force la reconstruction des anneaux à la nouvelle échelle
   if (currentPosition) renderRadarMarkers();
+  renderRadarList(); // la liste suit la même portée que le cadran (voir plus haut)
 }
 el("radar-range-toggle").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-range]");
@@ -1166,6 +1210,23 @@ el("radar-range-toggle").addEventListener("click", (ev) => {
 });
 setRadarRange(RADAR_RANGE_M, false);
 
+/* ---------- Préférences : format des coordonnées (Position + Secours vitaux) ---------- */
+function setCoordFormat(format, persist){
+  coordFormat = format;
+  if (persist){ try { localStorage.setItem(COORD_FORMAT_KEY, format); } catch (err) {} }
+  paintSegment("coord-format-toggle", "format", format);
+  if (currentPosition){
+    renderPosition(currentPosition);
+    renderEmergencyPosition();
+  }
+}
+el("coord-format-toggle").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-format]");
+  if (!btn) return;
+  setCoordFormat(btn.dataset.format, true);
+});
+setCoordFormat(coordFormat, false);
+
 /* ======================================================================
    URGENCES & SECOURS — onglet à 2 sous-onglets (bottom tab bar « Secours »).
    Numéros et contrats ci-dessous : valeurs d'EXEMPLE à remplacer par les
@@ -1173,18 +1234,18 @@ setRadarRange(RADAR_RANGE_M, false);
    modifier pour personnaliser ce module.
    ====================================================================== */
 const EMERGENCY_CONFIG = {
-  security:  { name: "Jean Dupont — Responsable Sécurité", phone: "+33600000000", phoneLabel: "06 00 00 00 00" },
-  president: { name: "Marie Martin — Présidente du club",  phone: "+33600000001", phoneLabel: "06 00 00 00 01" },
+  security:  { name: "Anne MAILLOT — Responsable Sécurité", phone: "+33675081373", phoneLabel: "06 75 08 13 73" },
+  president: { name: "Pierre RUEF — Président du club", phone: "+33619816400", phoneLabel: "06 19 81 64 00", email: "pierre.ruef@cafgrenoble.com" },
   insurance: {
-    label: "Assurance du club (RC & Défense)",
-    phone: "+33800000000", phoneLabel: "0800 00 00 00",
-    email: "assistance@assureur-exemple.fr",
-    policyNumber: "Police collective n° XXXXXXXXX",
+    label: "Assurance du club (RC & Défense) — Gras Savoye",
+    phone: "+33972722243", phoneLabel: "09 72 72 22 43",
+    email: "fr.ffcam@wtwco.com",
+    policyNumber: "Contrat AXA n° 47 064 589 04",
   },
   repatriation: {
-    francePhone: "+33800000001", franceLabel: "0800 00 00 01",
-    intlPhone: "+33100000000", intlLabel: "+33 1 00 00 00 00",
-    contractNumber: "Contrat rapatriement n° XXXXXXXXX",
+    provider: "Mutuaide",
+    phone: "+33155985798", phoneLabel: "01 55 98 57 98", // même numéro pour la France et l'étranger
+    contractNumber: "3462",
   },
 };
 const LICENSE_STORAGE_KEY = "gra-locator-license-number";
@@ -1198,6 +1259,31 @@ function emergencyCoordRow(label, value){
   </div>`;
 }
 
+// Lignes de position pour Secours vitaux, selon le format choisi dans
+// Préférences. Pour l'UTM, la zone est affichée explicitement (ex. "31N") :
+// indispensable pour que le régulateur/secouriste interprète correctement
+// les coordonnées Est/Nord — sans elle, l'Est/Nord seul est ambigu.
+function emergencyPositionRows(format, latitude, longitude){
+  if (format === "dd"){
+    return [
+      emergencyCoordRow("Latitude", formatDDAbs(latitude) + " " + hemisphereOf(latitude, true)),
+      emergencyCoordRow("Longitude", formatDDAbs(longitude) + " " + hemisphereOf(longitude, false)),
+    ];
+  }
+  if (format === "dms"){
+    return [
+      emergencyCoordRow("Latitude", toDMSAbs(latitude) + " " + hemisphereOf(latitude, true)),
+      emergencyCoordRow("Longitude", toDMSAbs(longitude) + " " + hemisphereOf(longitude, false)),
+    ];
+  }
+  const utm = toUTM(latitude, longitude);
+  return [
+    emergencyCoordRow("Zone UTM", utm.zone + utm.hemisphere),
+    emergencyCoordRow("Est (E)", Math.round(utm.easting) + " m"),
+    emergencyCoordRow("Nord (N)", Math.round(utm.northing) + " m"),
+  ];
+}
+
 // Position GPS affichée en très grand dans le sous-onglet "Secours vitaux" —
 // réutilise directement currentPosition, mis à jour par startGeolocation().
 function renderEmergencyPosition(){
@@ -1209,8 +1295,7 @@ function renderEmergencyPosition(){
   }
   const { latitude, longitude, accuracy, altitude } = currentPosition;
   body.innerHTML = [
-    emergencyCoordRow("Latitude", formatDDAbs(latitude) + " " + hemisphereOf(latitude, true)),
-    emergencyCoordRow("Longitude", formatDDAbs(longitude) + " " + hemisphereOf(longitude, false)),
+    ...emergencyPositionRows(coordFormat, latitude, longitude),
     emergencyCoordRow("Altitude", altitude != null ? Math.round(altitude) + " m" : "—"),
     emergencyCoordRow("Précision", accuracy != null ? "±" + Math.round(accuracy) + " m" : "—"),
   ].join("");
@@ -1289,7 +1374,8 @@ function renderEmergencyContacts(){
     emergencyCard("Contacts de crise du club", [
       emergencyCallRow(cfg.security.name, cfg.security.phoneLabel, telHref(cfg.security.phone)),
       emergencyCallRow(cfg.president.name, cfg.president.phoneLabel, telHref(cfg.president.phone)),
-    ].join(ROW_GAP)),
+      cfg.president.email ? emergencyMailRow(cfg.president.name, cfg.president.email, "mailto:" + cfg.president.email) : "",
+    ].filter(Boolean).join(ROW_GAP)),
 
     emergencyCard(cfg.insurance.label, [
       emergencyCallRow("Assistance assureur", cfg.insurance.phoneLabel, telHref(cfg.insurance.phone)),
@@ -1302,10 +1388,9 @@ function renderEmergencyContacts(){
       <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2">Modifiable dans l'onglet Préférences.</p>
     </div>`,
 
-    emergencyCard("Rapatriement & mutuelle", [
-      emergencyCallRow("Assistance rapatriement France", cfg.repatriation.franceLabel, telHref(cfg.repatriation.francePhone)),
-      emergencyCallRow("Assistance rapatriement Étranger", cfg.repatriation.intlLabel, telHref(cfg.repatriation.intlPhone)),
-    ].join(ROW_GAP) + emergencyLabelBlock("N° de contrat rapatriement", cfg.repatriation.contractNumber)),
+    emergencyCard("Rapatriement & mutuelle — " + cfg.repatriation.provider, [
+      emergencyCallRow("Assistance rapatriement (France & Étranger)", cfg.repatriation.phoneLabel, telHref(cfg.repatriation.phone)),
+    ].join(ROW_GAP) + emergencyLabelBlock("N° de contrat", cfg.repatriation.contractNumber)),
   ].join(CARD_GAP);
 }
 renderEmergencyContacts();
