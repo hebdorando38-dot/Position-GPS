@@ -24,7 +24,7 @@
 <meta name="apple-mobile-web-app-title" content="SOS CAFGI" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" />
-<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="stylesheet" href="leaflet.css" />
 
 <!-- Tailwind CSS — build "browser" officiel vendu en local (aucun appel réseau,
@@ -196,9 +196,9 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
           <span class="text-[10px] font-bold">Position</span>
         </button>
-        <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="radar" aria-label="Radar">
+        <button class="nav-tab flex flex-col items-center justify-center gap-0.5" data-tab="radar" aria-label="Émetteurs">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
-          <span class="text-[10px] font-bold">Radar</span>
+          <span class="text-[10px] font-bold">Émetteurs</span>
         </button>
         <button class="nav-tab nav-tab-emergency flex flex-col items-center justify-center gap-0.5" data-tab="secours" aria-label="Secours">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/></svg>
@@ -393,6 +393,21 @@
 
   <!-- ===== Onglet 4 : Préférences ===== -->
   <div id="tab-preferences" class="hidden pt-4 grid gap-3.5">
+    <!-- Installer l'application sur l'écran d'accueil — pour ouvrir SOS CAFGI
+         comme une vraie appli (icône dédiée, sans barre de navigateur), sans
+         passer par un lien à chercher dans les favoris à chaque fois. -->
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm" id="install-card">
+      <div class="flex items-center gap-3">
+        <span id="install-icon" class="flex-none w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center"></span>
+        <div class="flex-1 min-w-0">
+          <span class="block font-bold text-[13.5px]" id="install-label">Installer l'application</span>
+          <span class="block text-[11.5px] text-slate-400 dark:text-slate-500 mt-0.5" id="install-detail">Vérification…</span>
+        </div>
+      </div>
+      <button id="btn-install" class="hidden mt-3.5 w-full min-h-[46px] rounded-xl bg-brand-500 text-white font-bold text-[13.5px] active:scale-[0.98] transition">Installer sur cet appareil</button>
+      <div id="install-ios-steps" class="hidden mt-3.5 grid gap-2 text-[12.5px] text-slate-600 dark:text-slate-300 pt-3.5 border-t border-slate-100 dark:border-slate-800"></div>
+    </div>
+
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Thème visuel</span>
       <div id="theme-toggle" class="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
@@ -472,6 +487,8 @@ const ICON_PATHS = {
   wifiOff: '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
   shieldCheck: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  download: '<path d="M12 15V3"/><path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+  smartphone: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
 };
 function icon(name, cls){
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls || "w-4 h-4"}">${ICON_PATHS[name]}</svg>`;
@@ -867,6 +884,7 @@ function switchTab(name){
   } else if (name === "preferences"){
     refreshLicenseFieldFromStorage();
     updateSwStatusBadge();
+    updateInstallCard();
   }
 }
 document.querySelectorAll("#bottom-nav .nav-tab").forEach(b => {
@@ -1505,6 +1523,88 @@ el("input-license-pref").addEventListener("input", () => {
   try { localStorage.setItem(LICENSE_STORAGE_KEY, el("input-license-pref").value); } catch (err) {}
 });
 
+/* ======================================================================
+   INSTALLER L'APPLICATION — ajouter SOS CAFGI à l'écran d'accueil pour
+   l'ouvrir comme une vraie appli (icône dédiée, sans barre de navigateur),
+   utile notamment pour transmettre le lien aux encadrants sans qu'ils
+   aient à retrouver l'onglet du navigateur à chaque sortie.
+   - Android / Chrome / Edge : Chrome propose l'événement "beforeinstallprompt"
+     quand le site est jugé installable — on le capture pour offrir un
+     vrai bouton "Installer" en un geste.
+   - iOS Safari : Apple ne propose aucune invite programmatique, seule la
+     voie manuelle (Partager -> Sur l'écran d'accueil) existe — on affiche
+     les 2 étapes à suivre.
+   - Autres cas (déjà installé, ou navigateur sans invite dédiée) : message
+     générique adapté.
+   ====================================================================== */
+let deferredInstallPrompt = null;
+
+function isStandaloneDisplay(){
+  return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+}
+function isIOSDevice(){
+  return /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function updateInstallCard(){
+  const iconEl = el("install-icon"), labelEl = el("install-label"), detailEl = el("install-detail");
+  const btn = el("btn-install"), steps = el("install-ios-steps");
+  btn.classList.add("hidden");
+  steps.classList.add("hidden");
+
+  if (isStandaloneDisplay()){
+    iconEl.className = "flex-none w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center";
+    iconEl.innerHTML = icon("checkCircle", "w-5 h-5");
+    labelEl.textContent = "Application installée";
+    detailEl.textContent = "SOS CAFGI est déjà installée sur cet appareil, avec sa propre icône.";
+    return;
+  }
+
+  if (deferredInstallPrompt){
+    iconEl.className = "flex-none w-10 h-10 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center";
+    iconEl.innerHTML = icon("download", "w-5 h-5");
+    labelEl.textContent = "Installer l'application";
+    detailEl.textContent = "Ajoutez SOS CAFGI à l'écran d'accueil pour l'ouvrir en un geste, avec son icône, sans passer par le navigateur.";
+    btn.classList.remove("hidden");
+    return;
+  }
+
+  if (isIOSDevice()){
+    iconEl.className = "flex-none w-10 h-10 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center";
+    iconEl.innerHTML = icon("smartphone", "w-5 h-5");
+    labelEl.textContent = "Installer l'application";
+    detailEl.textContent = "Sur iPhone/iPad, l'installation se fait depuis Safari en 2 étapes :";
+    steps.innerHTML = `
+      <div class="flex items-start gap-2.5"><span class="flex-none w-5 h-5 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-extrabold text-[11px] flex items-center justify-center">1</span><span>Ouvrez ce lien avec <strong>Safari</strong> (pas un autre navigateur), puis touchez l'icône de partage <strong>⬆️ Partager</strong> en bas de l'écran.</span></div>
+      <div class="flex items-start gap-2.5"><span class="flex-none w-5 h-5 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-extrabold text-[11px] flex items-center justify-center">2</span><span>Choisissez <strong>« Sur l'écran d'accueil »</strong>, puis « Ajouter ».</span></div>
+    `;
+    steps.classList.remove("hidden");
+    return;
+  }
+
+  iconEl.className = "flex-none w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center";
+  iconEl.innerHTML = icon("download", "w-5 h-5");
+  labelEl.textContent = "Installer l'application";
+  detailEl.textContent = "Ouvrez le menu de votre navigateur et choisissez « Installer l'application » ou « Ajouter à l'écran d'accueil ».";
+}
+
+window.addEventListener("beforeinstallprompt", (ev) => {
+  ev.preventDefault();
+  deferredInstallPrompt = ev;
+  updateInstallCard();
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  updateInstallCard();
+});
+el("btn-install").addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  try { await deferredInstallPrompt.userChoice; } catch (err) {}
+  deferredInstallPrompt = null;
+  updateInstallCard();
+});
+
 function updateSwStatusBadge(){
   const iconEl = el("sw-status-icon"), labelEl = el("sw-status-label"), detailEl = el("sw-status-detail");
   if (!("serviceWorker" in navigator)){
@@ -1604,6 +1704,7 @@ try {
 } catch (err) {}
 switchTab(initialTab);
 updateSwStatusBadge();
+updateInstallCard();
 startGeolocation();
 </script>
 </body>

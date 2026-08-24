@@ -6,7 +6,7 @@
 // même (voir index.html) — ce service worker sert uniquement à ce que le
 // PREMIER chargement (avec réseau) reste disponible ensuite hors-ligne.
 
-const CACHE_NAME = "gra-locator-v16";
+const CACHE_NAME = "gra-locator-v17";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const CORE_ASSETS = [
   "./icon-192.png",
   "./icon-512.png",
   "./icon-maskable-512.png",
+  "./apple-touch-icon.png",
   "./club-logo.png",
   "./leaflet.js",
   "./leaflet.css",
