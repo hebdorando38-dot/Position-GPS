@@ -188,7 +188,7 @@
           SOS <span class="text-brand-500 dark:text-brand-400">CAFGI</span>
         </h1>
         <div class="text-[10.5px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
-          CAF Grenoble Isère <span class="text-slate-300 dark:text-slate-700">·</span> <span id="dataset-pill" class="normal-case font-mono font-semibold tracking-normal">— émetteurs</span>
+          CAF Grenoble Isère
         </div>
       </div>
     </div>
@@ -677,8 +677,6 @@ function azimuthLabelFull(deg){ return Math.round(deg) + "° " + compassPointLab
    ====================================================================== */
 const el = id => document.getElementById(id);
 let currentPosition = null;   // {latitude, longitude, accuracy, altitude} — position GPS réelle
-
-el("dataset-pill").textContent = EMITTERS.length + " émetteurs chargés";
 
 const compassSupported = typeof window.DeviceOrientationEvent !== "undefined";
 if (!compassSupported){
