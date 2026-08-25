@@ -134,10 +134,14 @@
      `transform`) — il faut donc réinitialiser `translate`, pas `transform`. */
   #sheet.open{ translate: 0 0; }
 
-  /* Coordonnées : chiffres calés à droite (alignés d'une ligne à l'autre),
-     lettre d'axe N/E/S/O dans sa propre colonne — même règle sur les trois
-     blocs (degrés décimaux, DMS, UTM). */
-  .coord-row{ display:flex; align-items:baseline; justify-content:flex-end; gap:0.3em; }
+  /* Coordonnées : légende d'axe à gauche (Latitude/Longitude pour les degrés,
+     Est/Nord pour les grilles métriques UTM et Lambert 93 — deux vocabulaires
+     distincts, chacun sur sa famille de formats), chiffres calés à droite
+     (alignés d'une ligne à l'autre), lettre d'hémisphère N/E/S/O dans sa
+     propre colonne pour les degrés décimaux et DMS uniquement. */
+  .coord-row{ display:flex; align-items:baseline; justify-content:space-between; gap:0.6em; }
+  .coord-cap{ flex:none; padding-top:0.35em; }
+  .coord-vals{ display:flex; align-items:baseline; gap:0.3em; }
   .coord-val{ min-width:11ch; text-align:right; font-variant-numeric:tabular-nums; }
 
   /* ---------- Barre d'onglets — sous le titre, dans l'en-tête collé en haut ---------- */
@@ -227,6 +231,15 @@
           <span id="btn-copy-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
           <span id="btn-copy-label">Copier</span>
         </button>
+      </div>
+      <!-- Tags de format — bascule rapide DD / DMS / UTM / Lambert 93, partagée
+           avec Secours vitaux et mémorisée (remplace l'ancien réglage dans
+           Préférences, devenu redondant avec ces tags). -->
+      <div id="position-coord-tags" class="flex flex-wrap gap-1.5 mb-3.5" role="group" aria-label="Format des coordonnées">
+        <button data-format="dd" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">Deg.</button>
+        <button data-format="dms" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">DMS</button>
+        <button data-format="utm" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">UTM</button>
+        <button data-format="l93" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">L93</button>
       </div>
       <div id="position-body" role="button" tabindex="0" aria-label="Copier les coordonnées" class="cursor-pointer active:opacity-70 transition-opacity"></div>
     </div>
@@ -418,16 +431,6 @@
     </div>
 
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Format des coordonnées</span>
-      <div id="coord-format-toggle" class="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-        <button data-format="dd" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">Degrés déc.</button>
-        <button data-format="dms" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">DMS</button>
-        <button data-format="utm" class="flex-1 rounded-lg py-2.5 text-[12.5px] font-bold transition">UTM</button>
-      </div>
-      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2.5">Jeu de coordonnées affiché dans l'onglet Position et dans Secours vitaux.</p>
-    </div>
-
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Portée du radar</span>
       <div id="radar-range-toggle" class="grid grid-cols-5 gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
         <button data-range="2000" class="flex-1 rounded-lg py-2.5 text-[11px] font-bold transition">2 km</button>
@@ -580,6 +583,27 @@ function formatUTM(u){
   return u.zone + u.hemisphere + " " + Math.round(u.easting) + "mE " + Math.round(u.northing) + "mN";
 }
 
+// Lambert-93 / RGF93 (EPSG:2154) — constantes officielles IGN. Zone unique
+// pour toute la France (pas de fuseau à calculer, contrairement à l'UTM).
+// Calculé ici à partir des coordonnées GPS WGS84, comme l'UTM ci-dessus :
+// l'écart avec l'ellipsoïde officiel GRS80 est de l'ordre du centimètre,
+// négligeable pour un usage secours en montagne. Formule vérifiée contre le
+// point de référence IGN (46°30'N, 3°E -> X=700000.000, Y=6600000.000).
+const L93_N = 0.7256077650;
+const L93_C = 11754255.426;
+const L93_XS = 700000.0;
+const L93_YS = 12655612.050;
+const L93_ECC = 0.08181919112;
+const L93_LON0 = deg2rad(3.0);
+
+function toLambert93(lat, lon){
+  const phi = deg2rad(lat), lam = deg2rad(lon);
+  const L = Math.log(Math.tan(Math.PI/4 + phi/2)) - (L93_ECC/2) * Math.log((1 + L93_ECC*Math.sin(phi)) / (1 - L93_ECC*Math.sin(phi)));
+  const R = L93_C * Math.exp(-L93_N * L);
+  const gamma = L93_N * (lam - L93_LON0);
+  return { x: L93_XS + R * Math.sin(gamma), y: L93_YS - R * Math.cos(gamma) };
+}
+
 /* ======================================================================
    DISTANCE / AZIMUT (Haversine + relèvement initial)
    ====================================================================== */
@@ -630,14 +654,24 @@ function codeOfEmitter(e){ return (e.code || e.name || "").trim(); }
 
 /* ---------- Segments à bascule (onglets urgence / thème / portée radar) ----------
    Un seul mécanisme réutilisé partout : évite de dupliquer la logique de
-   sélection visuelle pour chaque contrôle. */
+   sélection visuelle pour chaque contrôle. paintSegment() accepte des classes
+   actif/inactif optionnelles pour les contrôles qui n'ont pas le style
+   "piste pleine largeur" par défaut (voir TAG_ACTIVE / TAG_INACTIVE). */
 const SEGMENT_ACTIVE = "flex-1 inline-flex flex-col items-center justify-center gap-1 rounded-lg py-2.5 text-[11.5px] font-bold transition bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm";
 const SEGMENT_INACTIVE = "flex-1 inline-flex flex-col items-center justify-center gap-1 rounded-lg py-2.5 text-[11.5px] font-bold transition text-slate-500 dark:text-slate-400";
-function paintSegment(containerId, dataAttr, activeValue){
+function paintSegment(containerId, dataAttr, activeValue, activeCls, inactiveCls){
+  const AC = activeCls || SEGMENT_ACTIVE, IC = inactiveCls || SEGMENT_INACTIVE;
   el(containerId).querySelectorAll("button").forEach(b => {
-    b.className = (b.dataset[dataAttr] === String(activeValue)) ? SEGMENT_ACTIVE : SEGMENT_INACTIVE;
+    b.className = (b.dataset[dataAttr] === String(activeValue)) ? AC : IC;
   });
 }
+
+/* ---------- Tags de format (onglet Position) ----------
+   Contrôle plus discret que les segments pleine largeur ci-dessus : une
+   rangée de petites pastilles, pour ne pas concurrencer les grands chiffres
+   de coordonnées juste en dessous. */
+const TAG_ACTIVE = "rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition bg-brand-500 text-white shadow-sm";
+const TAG_INACTIVE = "rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400";
 
 /* ======================================================================
    THÈME — Clair / Sombre / Automatique, classe ".dark" sur <html>.
@@ -701,10 +735,12 @@ async function copyCoordinates(){
   if (!currentPosition) return;
   const { latitude, longitude } = currentPosition;
   const utm = toUTM(latitude, longitude);
+  const l93 = toLambert93(latitude, longitude);
   const text = [
     `Degrés déc. : ${formatDDAbs(latitude)} ${hemisphereOf(latitude, true)}, ${formatDDAbs(longitude)} ${hemisphereOf(longitude, false)}`,
     `DMS : ${toDMSAbs(latitude)} ${hemisphereOf(latitude, true)}, ${toDMSAbs(longitude)} ${hemisphereOf(longitude, false)}`,
     `UTM : ${utm.zone}${utm.hemisphere} ${Math.round(utm.easting)}mE ${Math.round(utm.northing)}mN`,
+    `Lambert 93 : X ${Math.round(l93.x)}m, Y ${Math.round(l93.y)}m`,
   ].join("\n");
 
   try {
@@ -739,13 +775,14 @@ el("position-body").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); copyCoordinates(); }
 });
 
-/* ---------- Format des coordonnées (Préférences) ----------
-   Un seul jeu de coordonnées à la fois — Degrés déc. / DMS / UTM — utilisé
-   à la fois par l'onglet Position et par "Secours vitaux". Réglage réparti
-   par défaut sur UTM au tout premier lancement (avant toute préférence
-   enregistrée), conformément à la demande. */
+/* ---------- Format des coordonnées (tags de l'onglet Position) ----------
+   Un seul jeu de coordonnées à la fois — Degrés déc. / DMS / UTM / Lambert 93
+   — utilisé à la fois par l'onglet Position et par "Secours vitaux". Réglage
+   réparti par défaut sur UTM au tout premier lancement (avant toute
+   préférence enregistrée), conformément à la demande. Se règle uniquement
+   depuis les tags de l'onglet Position (plus de doublon dans Préférences). */
 const COORD_FORMAT_KEY = "gra-locator-coord-format";
-const COORD_FORMAT_OPTIONS = ["dd", "dms", "utm"];
+const COORD_FORMAT_OPTIONS = ["dd", "dms", "utm", "l93"];
 let coordFormat = "utm";
 function loadCoordFormatPreference(){
   try {
@@ -755,13 +792,21 @@ function loadCoordFormatPreference(){
 }
 loadCoordFormatPreference();
 
-function coordFormatLabel(format){
-  return format === "dd" ? "Degrés déc." : format === "dms" ? "DMS" : "UTM";
-}
-
-/* ---------- Onglet Position ---------- */
-function coordRow(value, letter){
-  return `<div class="coord-row"><span class="coord-val font-mono font-bold text-[clamp(23px,7.6vw,32px)] leading-tight">${value}</span>${letter ? `<span class="flex-none font-mono font-extrabold text-[clamp(17px,5.6vw,23px)] leading-tight text-brand-500 dark:text-brand-400">${letter}</span>` : ""}</div>`;
+/* ---------- Onglet Position ----------
+   Chaque ligne porte une légende d'axe à gauche — Latitude/Longitude pour
+   les degrés (DD, DMS), Est/Nord pour les grilles métriques (UTM, Lambert
+   93) — deux vocabulaires distincts choisis pour lever l'ambiguïté qu'avait
+   la seule lettre d'axe. La lettre d'hémisphère (N/E/S/O) à droite ne
+   s'applique qu'aux degrés ; UTM et Lambert 93 n'en ont pas besoin, la
+   légende suffit. */
+function coordRow(caption, value, letter){
+  return `<div class="coord-row">
+    <span class="coord-cap flex-none text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${caption}</span>
+    <span class="coord-vals">
+      <span class="coord-val font-mono font-bold text-[clamp(23px,7.6vw,32px)] leading-tight">${value}</span>
+      ${letter ? `<span class="flex-none font-mono font-extrabold text-[clamp(17px,5.6vw,23px)] leading-tight text-brand-500 dark:text-brand-400">${letter}</span>` : ""}
+    </span>
+  </div>`;
 }
 
 // Lignes de coordonnées pour le format actuellement choisi — réutilisées
@@ -769,13 +814,17 @@ function coordRow(value, letter){
 // (emergencyCoordRow, voir plus bas) via leurs propres fonctions d'appel.
 function coordinateRowsHtml(format, latitude, longitude){
   if (format === "dd"){
-    return coordRow(formatDDAbs(latitude), hemisphereOf(latitude, true)) + coordRow(formatDDAbs(longitude), hemisphereOf(longitude, false));
+    return coordRow("Latitude", formatDDAbs(latitude), hemisphereOf(latitude, true)) + coordRow("Longitude", formatDDAbs(longitude), hemisphereOf(longitude, false));
   }
   if (format === "dms"){
-    return coordRow(toDMSAbs(latitude), hemisphereOf(latitude, true)) + coordRow(toDMSAbs(longitude), hemisphereOf(longitude, false));
+    return coordRow("Latitude", toDMSAbs(latitude), hemisphereOf(latitude, true)) + coordRow("Longitude", toDMSAbs(longitude), hemisphereOf(longitude, false));
+  }
+  if (format === "l93"){
+    const l93 = toLambert93(latitude, longitude);
+    return coordRow("Est", Math.round(l93.x) + " m") + coordRow("Nord", Math.round(l93.y) + " m");
   }
   const utm = toUTM(latitude, longitude);
-  return coordRow(utm.zone + utm.hemisphere) + coordRow(Math.round(utm.easting) + " m", "E") + coordRow(Math.round(utm.northing) + " m", "N");
+  return coordRow("Zone", utm.zone + utm.hemisphere) + coordRow("Est", Math.round(utm.easting) + " m") + coordRow("Nord", Math.round(utm.northing) + " m");
 }
 
 // Seuils de précision GPS typiques en usage rando/montagne.
@@ -797,8 +846,7 @@ function renderPosition(pos){
   const badge = tier ? ACCURACY_STYLES[tier] : null;
 
   el("position-body").innerHTML = `
-    <div class="mt-3">
-      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">${coordFormatLabel(coordFormat)}</span>
+    <div>
       ${coordinateRowsHtml(coordFormat, latitude, longitude)}
     </div>
     ${badge != null && accuracy != null ? `
@@ -1228,17 +1276,18 @@ el("radar-range-toggle").addEventListener("click", (ev) => {
 });
 setRadarRange(RADAR_RANGE_M, false);
 
-/* ---------- Préférences : format des coordonnées (Position + Secours vitaux) ---------- */
+/* ---------- Tags de format des coordonnées (onglet Position, partagé avec
+   Secours vitaux) ---------- */
 function setCoordFormat(format, persist){
   coordFormat = format;
   if (persist){ try { localStorage.setItem(COORD_FORMAT_KEY, format); } catch (err) {} }
-  paintSegment("coord-format-toggle", "format", format);
+  paintSegment("position-coord-tags", "format", format, TAG_ACTIVE, TAG_INACTIVE);
   if (currentPosition){
     renderPosition(currentPosition);
     renderEmergencyPosition();
   }
 }
-el("coord-format-toggle").addEventListener("click", (ev) => {
+el("position-coord-tags").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-format]");
   if (!btn) return;
   setCoordFormat(btn.dataset.format, true);
@@ -1277,10 +1326,11 @@ function emergencyCoordRow(label, value){
   </div>`;
 }
 
-// Lignes de position pour Secours vitaux, selon le format choisi dans
-// Préférences. Pour l'UTM, la zone est affichée explicitement (ex. "31N") :
-// indispensable pour que le régulateur/secouriste interprète correctement
-// les coordonnées Est/Nord — sans elle, l'Est/Nord seul est ambigu.
+// Lignes de position pour Secours vitaux, selon le format choisi via les
+// tags de l'onglet Position. Pour l'UTM et le Lambert 93, l'axe est affiché
+// explicitement (ex. "Est (E)", "Est (X)") : indispensable pour que le
+// régulateur/secouriste interprète correctement les coordonnées Est/Nord —
+// sans lui, l'Est/Nord seul est ambigu.
 function emergencyPositionRows(format, latitude, longitude){
   if (format === "dd"){
     return [
@@ -1292,6 +1342,13 @@ function emergencyPositionRows(format, latitude, longitude){
     return [
       emergencyCoordRow("Latitude", toDMSAbs(latitude) + " " + hemisphereOf(latitude, true)),
       emergencyCoordRow("Longitude", toDMSAbs(longitude) + " " + hemisphereOf(longitude, false)),
+    ];
+  }
+  if (format === "l93"){
+    const l93 = toLambert93(latitude, longitude);
+    return [
+      emergencyCoordRow("Est (X)", Math.round(l93.x) + " m"),
+      emergencyCoordRow("Nord (Y)", Math.round(l93.y) + " m"),
     ];
   }
   const utm = toUTM(latitude, longitude);
