@@ -255,8 +255,17 @@
   <div id="tab-radar" class="hidden pt-4">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl p-4.5">
       <div class="flex items-center justify-between gap-2">
-        <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Radar boussole · portée <span id="radar-range-label">20 km</span></span>
+        <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Radar boussole · portée <span id="radar-range-label">25 km</span></span>
         <span class="font-mono font-bold text-[15px] tabular-nums" id="radar-heading-value">— —</span>
+      </div>
+
+      <!-- Tags de portée — bascule rapide, même principe que les tags de
+           format sur l'onglet Position (remplace l'ancien réglage dans
+           Préférences, devenu redondant avec ces tags). -->
+      <div id="radar-range-tags" class="flex flex-wrap gap-1.5 mt-3" role="group" aria-label="Portée du radar">
+        <button data-range="15000" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">15 km</button>
+        <button data-range="25000" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">25 km</button>
+        <button data-range="50000" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">50 km</button>
       </div>
 
       <div id="radar-viz" class="hidden mx-auto mt-2" style="max-width:260px;">
@@ -428,18 +437,6 @@
         <button data-theme="dark" class="flex-1 inline-flex flex-col items-center justify-center gap-1 rounded-lg py-2.5 text-[11.5px] font-bold transition"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg><span>Sombre</span></button>
         <button data-theme="auto" class="flex-1 inline-flex flex-col items-center justify-center gap-1 rounded-lg py-2.5 text-[11.5px] font-bold transition"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg><span>Auto</span></button>
       </div>
-    </div>
-
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Portée du radar</span>
-      <div id="radar-range-toggle" class="grid grid-cols-5 gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-        <button data-range="2000" class="flex-1 rounded-lg py-2.5 text-[11px] font-bold transition">2 km</button>
-        <button data-range="5000" class="flex-1 rounded-lg py-2.5 text-[11px] font-bold transition">5 km</button>
-        <button data-range="10000" class="flex-1 rounded-lg py-2.5 text-[11px] font-bold transition">10 km</button>
-        <button data-range="20000" class="flex-1 rounded-lg py-2.5 text-[11px] font-bold transition">20 km</button>
-        <button data-range="25000" class="flex-1 rounded-lg py-2.5 text-[11px] font-bold transition">25 km</button>
-      </div>
-      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2.5">Rayon maximal affiché sur le cadran radar de l'onglet Radar.</p>
     </div>
 
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
@@ -1020,9 +1017,9 @@ function svgEl(tag, attrs){
 const RADAR_SIZE = 260;
 const RADAR_CENTER = RADAR_SIZE / 2;
 const RADAR_RADIUS = RADAR_CENTER - 34; // laisse la place aux libellés d'échelle
-const RADAR_RANGE_OPTIONS = [2000, 5000, 10000, 20000, 25000];
+const RADAR_RANGE_OPTIONS = [15000, 25000, 50000];
 const RADAR_RANGE_KEY = "gra-locator-radar-range-m";
-let RADAR_RANGE_M = 20000; // portée native par défaut — réglable dans Préférences
+let RADAR_RANGE_M = 25000; // portée native par défaut — réglable via les tags de l'onglet Émetteurs
 
 function loadRadarRangePreference(){
   try {
@@ -1053,7 +1050,7 @@ function radarPolarPoint(bearingDeg, r){
 }
 
 // Éléments fixes du cadran (anneaux, échelle, cône de visée) : reconstruits
-// quand la portée change (Préférences), sinon une seule fois.
+// quand la portée change (tags de l'onglet Émetteurs), sinon une seule fois.
 function buildRadarStatic(){
   const svg = el("radar-svg");
   svg.innerHTML = "";
@@ -1104,7 +1101,7 @@ function renderRadarMarkers(){
 
   EMITTERS.forEach(e => {
     const dist = distanceMeters(currentPosition.latitude, currentPosition.longitude, e.lat, e.lon);
-    if (dist > RADAR_RANGE_M) return; // hors de la portée choisie dans Préférences
+    if (dist > RADAR_RANGE_M) return; // hors de la portée choisie via les tags
     const bearing = initialBearingDegrees(currentPosition.latitude, currentPosition.longitude, e.lat, e.lon);
     const r = Math.min(dist / RADAR_RANGE_M, 1) * RADAR_RADIUS;
     const p = radarPolarPoint(bearing, r);
@@ -1128,9 +1125,10 @@ function renderRadarMarkers(){
 }
 
 // Liste des émetteurs affichés sur le cadran radar, triée par distance
-// croissante — restreinte à la même portée que le cadran SVG (réglage
-// Préférences), pour que la liste corresponde toujours exactement à ce qui
-// est visible dans le radar (pas d'émetteur listé mais absent du cadran).
+// croissante — restreinte à la même portée que le cadran SVG (tags de
+// l'onglet Émetteurs), pour que la liste corresponde toujours exactement à
+// ce qui est visible dans le radar (pas d'émetteur listé mais absent du
+// cadran).
 function renderRadarList(){
   const container = el("radar-list");
   el("radar-list-range-hint").textContent = "(≤ " + distanceLabel(RADAR_RANGE_M) + ")";
@@ -1151,7 +1149,7 @@ function renderRadarList(){
 
   if (!results.length){
     container.innerHTML = "";
-    el("radar-list-empty").textContent = "Aucun émetteur dans la portée sélectionnée — augmentez la portée du radar dans Préférences.";
+    el("radar-list-empty").textContent = "Aucun émetteur dans la portée sélectionnée — augmentez la portée avec les tags ci-dessus.";
     el("radar-list-empty").classList.remove("hidden");
     return;
   }
@@ -1259,17 +1257,17 @@ async function enableCompass(){
 }
 el("btn-compass").addEventListener("click", enableCompass);
 
-/* ---------- Préférences : portée du radar ---------- */
+/* ---------- Tags de portée du radar (onglet Émetteurs) ---------- */
 function setRadarRange(meters, persist){
   RADAR_RANGE_M = meters;
   if (persist){ try { localStorage.setItem(RADAR_RANGE_KEY, String(meters)); } catch (err) {} }
   el("radar-range-label").textContent = distanceLabel(meters);
-  paintSegment("radar-range-toggle", "range", meters);
+  paintSegment("radar-range-tags", "range", meters, TAG_ACTIVE, TAG_INACTIVE);
   radarBuilt = false; // force la reconstruction des anneaux à la nouvelle échelle
   if (currentPosition) renderRadarMarkers();
   renderRadarList(); // la liste suit la même portée que le cadran (voir plus haut)
 }
-el("radar-range-toggle").addEventListener("click", (ev) => {
+el("radar-range-tags").addEventListener("click", (ev) => {
   const btn = ev.target.closest("[data-range]");
   if (!btn) return;
   setRadarRange(parseInt(btn.dataset.range, 10), true);
