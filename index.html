@@ -232,6 +232,11 @@
           <span id="btn-copy-label">Copier</span>
         </button>
       </div>
+      <!-- Horodatage de l'accident — capture l'heure en un tap, pour la
+           transmettre au régulateur. Un reset explicite (bouton ⨉) est requis
+           avant de pouvoir recapturer, même logique défensive que l'espacement
+           entre les boutons 112/114 : on évite d'écraser l'heure par erreur. -->
+      <div id="accident-timestamp" class="mb-3.5"></div>
       <!-- Tags de format — bascule rapide DD / DMS / UTM / Lambert 93, partagée
            avec Secours vitaux et mémorisée (remplace l'ancien réglage dans
            Préférences, devenu redondant avec ces tags). -->
@@ -533,6 +538,8 @@ const ICON_PATHS = {
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
   download: '<path d="M12 15V3"/><path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="m7 10 5 5 5-5"/>',
   smartphone: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 };
 function icon(name, cls){
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls || "w-4 h-4"}">${ICON_PATHS[name]}</svg>`;
@@ -879,23 +886,27 @@ const ACCURACY_STYLES = {
   poor: { label: "Précision faible", classes: "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30" },
 };
 
+// Ligne d'altitude ajoutée en dernier, après les coordonnées du format
+// choisi — l'altitude ne dépend pas du format (DD/DMS/UTM/L93), elle reste
+// donc à sa place quel que soit le tag sélectionné. Le GPS des navigateurs
+// ne fournit pas toujours l'altitude (selon l'appareil) : "—" si absente.
 function renderPosition(pos){
-  const { latitude, longitude, accuracy } = pos;
-  const tier = accuracyTier(accuracy);
-  const badge = tier ? ACCURACY_STYLES[tier] : null;
-
+  const { latitude, longitude, altitude } = pos;
   el("position-body").innerHTML = `
     <div>
       ${coordinateRowsHtml(coordFormat, latitude, longitude)}
+      ${coordRow("Altitude", altitude != null ? Math.round(altitude) + " m" : "—")}
     </div>
-    ${badge != null && accuracy != null ? `
-      <div class="mt-4 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-bold ${badge.classes}">
-        <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
-        <span>${badge.label} · ±${Math.round(accuracy)} m</span>
-      </div>
-    ` : ""}
   `;
   el("btn-copy").disabled = false;
+}
+
+// Texte affiché dans le bandeau du haut une fois la position acquise — la
+// précision GPS y est plus utile qu'un simple "Position à jour" statique.
+function liveStatusText(accuracy){
+  const tier = accuracyTier(accuracy);
+  if (!tier) return "Position à jour";
+  return `${ACCURACY_STYLES[tier].label} · ±${Math.round(accuracy)} m`;
 }
 
 function setStatus(kind, text){
@@ -903,6 +914,63 @@ function setStatus(kind, text){
   dot.className = "w-2.5 h-2.5 rounded-full flex-none transition-colors " +
     (kind === "live" ? "dot live" : kind === "error" ? "dot error" : "dot bg-slate-300 dark:bg-slate-600");
   el("status-text").textContent = text;
+}
+
+/* ---------- Horodatage de l'accident ----------
+   Enregistre localement (localStorage, jamais envoyé sur le réseau) l'heure
+   à laquelle l'accident a été signalé, pour la transmettre au régulateur.
+   Persisté pour survivre à un rechargement accidentel de la page ; un reset
+   explicite (bouton ⨉) est requis avant de pouvoir recapturer une heure. */
+const ACCIDENT_TIME_KEY = "gra-locator-accident-time";
+let accidentTimeMs = null;
+function loadAccidentTime(){
+  try {
+    const stored = localStorage.getItem(ACCIDENT_TIME_KEY);
+    const ms = stored ? parseInt(stored, 10) : NaN;
+    if (!Number.isNaN(ms)) accidentTimeMs = ms;
+  } catch (err) {}
+}
+loadAccidentTime();
+
+function markAccidentTime(){
+  accidentTimeMs = Date.now();
+  try { localStorage.setItem(ACCIDENT_TIME_KEY, String(accidentTimeMs)); } catch (err) {}
+  renderAccidentTimestamp();
+}
+function resetAccidentTime(){
+  accidentTimeMs = null;
+  try { localStorage.removeItem(ACCIDENT_TIME_KEY); } catch (err) {}
+  renderAccidentTimestamp();
+}
+function renderAccidentTimestamp(){
+  const container = el("accident-timestamp");
+  if (!container) return;
+  if (accidentTimeMs != null){
+    const d = new Date(accidentTimeMs);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    container.innerHTML = `
+      <div class="flex items-center justify-between gap-2.5 rounded-xl bg-club-red-50 dark:bg-club-red-500/10 border border-club-red-200 dark:border-club-red-500/30 px-3.5 py-2.5">
+        <span>
+          <span class="block text-[10.5px] font-extrabold uppercase tracking-wide text-club-red-600 dark:text-club-red-400">Accident horodaté</span>
+          <span class="block font-mono font-extrabold text-[18px] text-club-red-700 dark:text-club-red-300 mt-0.5">${hh}:${mm}</span>
+        </span>
+        <button id="btn-accident-reset" aria-label="Réinitialiser l'horodatage" class="flex-none w-[30px] h-[30px] rounded-full flex items-center justify-center text-club-red-600 dark:text-club-red-400 bg-white dark:bg-slate-900 border border-club-red-200 dark:border-club-red-500/30 active:scale-90 transition">
+          ${icon("x", "w-3.5 h-3.5")}
+        </button>
+      </div>
+    `;
+    el("btn-accident-reset").addEventListener("click", resetAccidentTime);
+  } else {
+    container.innerHTML = `
+      <button id="btn-accident-mark" class="min-h-[46px] w-full inline-flex items-center justify-center gap-2 rounded-xl border-[1.5px] border-club-red-500 text-club-red-500 dark:text-club-red-400 font-extrabold text-[13px] tracking-wide active:scale-[0.98] transition">
+        ${icon("clock", "w-4 h-4")}
+        <span>Horodater l'accident</span>
+      </button>
+      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Enregistre l'heure actuelle. À utiliser dès la survenue de l'accident, pour la transmettre au régulateur.</p>
+    `;
+    el("btn-accident-mark").addEventListener("click", markAccidentTime);
+  }
 }
 
 function showLocationError(message, opts){
@@ -929,7 +997,7 @@ function startGeolocation(){
   navigator.geolocation.watchPosition(
     (pos) => {
       currentPosition = pos.coords;
-      setStatus("live", "Position à jour");
+      setStatus("live", liveStatusText(pos.coords.accuracy));
       renderPosition(pos.coords);
       updatePositionMap();
       renderRadarMarkers();
@@ -1824,6 +1892,7 @@ try {
 switchTab(initialTab);
 updateSwStatusBadge();
 updateInstallCard();
+renderAccidentTimestamp();
 startGeolocation();
 </script>
 </body>
