@@ -35,7 +35,10 @@
   /* Polices embarquées localement (Inter / JetBrains Mono) — pas de Google
      Fonts, pour rester 100% utilisable sans réseau. */
   @font-face{ font-family:'Inter'; font-style:normal; font-weight:400; font-display:swap; src:url('fonts/inter-latin-400-normal.woff2') format('woff2'); }
-  @font-face{ font-family:'Inter'; font-style:normal; font-weight:500; font-display:swap; src:url('fonts/inter-latin-500-normal.woff2') format('woff2'); }
+  /* Pas de graisse 500 pour Inter : non utilisée dans l'appli (aucun
+     "font-medium"), et le fichier woff2 correspondant n'a jamais été
+     fourni — mieux vaut l'omettre que de faire échouer tout le cache
+     hors-ligne sur un fichier manquant (voir sw.js, cache.addAll). */
   @font-face{ font-family:'Inter'; font-style:normal; font-weight:600; font-display:swap; src:url('fonts/inter-latin-600-normal.woff2') format('woff2'); }
   @font-face{ font-family:'Inter'; font-style:normal; font-weight:700; font-display:swap; src:url('fonts/inter-latin-700-normal.woff2') format('woff2'); }
   @font-face{ font-family:'Inter'; font-style:normal; font-weight:800; font-display:swap; src:url('fonts/inter-latin-800-normal.woff2') format('woff2'); }
@@ -250,9 +253,37 @@
     </div>
 
     <div class="mt-4">
-      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1.5">Carte</span>
+      <div class="flex items-center justify-between gap-2 mb-1.5">
+        <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">Carte</span>
+        <!-- Bascule de fond de carte : OSM (standard) ou IGN (Scan 25 —
+             relief, courbes de niveau, sentiers balisés), plus lisible en
+             montagne. Mémorisée comme les autres réglages de l'appli. -->
+        <div id="map-layer-tags" class="flex flex-wrap gap-1.5" role="group" aria-label="Fond de carte">
+          <button data-layer="osm" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">OSM</button>
+          <button data-layer="ign" class="rounded-full px-3 py-1.5 font-mono text-[11.5px] font-bold transition">IGN</button>
+        </div>
+      </div>
       <div id="position-map" class="h-[46vh] min-h-[280px] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-900"></div>
-      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Le fond de carte s'affiche s'il a déjà été chargé une fois avec du réseau sur cette zone ; sinon seuls les repères s'affichent.</p>
+      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Le fond de carte s'affiche s'il a déjà été chargé une fois avec du réseau sur cette zone (ou préchargé ci-dessous) ; sinon seuls les repères s'affichent.</p>
+
+      <!-- Préchargement volontaire d'une zone hors-ligne : à utiliser avant
+           de partir (avec du réseau), plutôt que de compter sur le hasard
+           des zones déjà affichées. Cadre = vue actuelle de la carte
+           ci-dessus (déplacez/zoomez avant de lancer). -->
+      <button
+        id="btn-preload-zone"
+        class="mt-2.5 w-full min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[12.5px] active:scale-[0.98] transition disabled:opacity-60 disabled:pointer-events-none"
+      >
+        <span id="btn-preload-icon" class="flex-none"></span>
+        <span id="btn-preload-label">Précharger cette zone hors-ligne</span>
+      </button>
+      <div id="preload-progress-wrap" class="hidden mt-2.5">
+        <div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+          <div id="preload-progress-bar" class="h-full bg-brand-500 transition-[width] duration-150" style="width:0%"></div>
+        </div>
+        <p class="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1.5 text-center" id="preload-progress-text"></p>
+      </div>
+      <p class="hidden text-[11.5px] text-slate-500 dark:text-slate-400 mt-2 text-center" id="preload-result-text"></p>
     </div>
   </div>
 
@@ -1031,6 +1062,10 @@ function switchTab(name){
   try { localStorage.setItem(TAB_KEY, name); } catch (err) {}
 
   if (name === "position"){
+    // Indépendant du GPS : permet de parcourir la carte et de précharger une
+    // zone (ex. depuis chez soi, avant de partir) sans attendre un premier
+    // point de position.
+    initPositionMap();
     setTimeout(() => { if (positionMapInstance) positionMapInstance.invalidateSize(); }, 50);
   } else if (name === "secours"){
     closeHeliPage(); // toujours revenir sur Secours vitaux / Contacts, jamais la sous-page Hélitreuillage
@@ -1073,14 +1108,79 @@ function resultForEmitter(e){
   };
 }
 
+/* ---------- Fonds de carte : OSM (standard) / IGN (Scan 25) -------------
+   Tuiles IGN servies par data.geopf.fr (la "Géoplateforme", qui a remplacé
+   l'ancien wxs.ign.fr), sans compte à créer. Couche "SCAN25TOUR" choisie
+   plutôt que "Plan IGN v2" : c'est elle qui porte courbes de niveau et
+   sentiers balisés, bien plus utile en montagne qu'un plan routier stylisé.
+   Elle est appelée par l'IGN via une clé "ign_scan_ws" explicitement
+   qualifiée par l'IGN de PROVISOIRE (en attendant la bascule complète vers
+   cartes.gouv.fr) : si les tuiles IGN cessent un jour de s'afficher (zone
+   grise), la clé a probablement changé — voir https://geoservices.ign.fr
+   pour la nouvelle valeur à remplacer ci-dessous (une seule ligne à
+   modifier). Vérifié fonctionnel le 25/08/2026.
+   Les DEUX serveurs (OSM et IGN) renvoient "Access-Control-Allow-Origin: *"
+   (vérifié) : crossOrigin:true est donc sûr pour les deux et indispensable
+   pour que le service worker puisse réellement mettre les tuiles en cache
+   (voir le commentaire correspondant dans sw.js). */
+const MAP_LAYER_KEY = "gra-locator-map-layer";
+const MAP_LAYERS = {
+  osm: {
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options: {
+      maxZoom: 17, crossOrigin: true,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributeurs',
+    },
+  },
+  ign: {
+    url: "https://data.geopf.fr/private/wmts?apikey=ign_scan_ws&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&EXCEPTIONS=text/xml&FORMAT=image/jpeg&SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+    options: {
+      maxZoom: 17, maxNativeZoom: 16, minZoom: 6, crossOrigin: true,
+      attribution: 'Carte © <a href="https://www.ign.fr" target="_blank" rel="noopener">IGN</a>/Géoportail',
+    },
+  },
+};
+function loadMapLayerPreference(){
+  try {
+    const stored = localStorage.getItem(MAP_LAYER_KEY);
+    if (stored && MAP_LAYERS[stored]) return stored;
+  } catch (err) {}
+  return "osm";
+}
+let mapLayerId = loadMapLayerPreference();
+let activeTileLayer = null;
+
+function buildTileLayer(id){
+  const def = MAP_LAYERS[id];
+  const layer = L.tileLayer(def.url, def.options);
+  layer.on("tileerror", (e) => { if (e.tile) e.tile.style.visibility = "hidden"; });
+  return layer;
+}
+
+function setMapLayer(id, persist){
+  if (!MAP_LAYERS[id]) return;
+  mapLayerId = id;
+  if (persist){ try { localStorage.setItem(MAP_LAYER_KEY, id); } catch (err) {} }
+  paintSegment("map-layer-tags", "layer", id, TAG_ACTIVE, TAG_INACTIVE);
+  updatePreloadButtonLabel();
+  if (positionMapInstance){
+    if (activeTileLayer) positionMapInstance.removeLayer(activeTileLayer);
+    activeTileLayer = buildTileLayer(id);
+    activeTileLayer.addTo(positionMapInstance);
+  }
+}
+el("map-layer-tags").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-layer]");
+  if (!btn) return;
+  setMapLayer(btn.dataset.layer, true);
+});
+
 function initPositionMap(){
   if (positionMapInstance || typeof L === "undefined") return;
   positionMapInstance = L.map("position-map", { attributionControl: true, zoomControl: true });
-  const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 17,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributeurs',
-  }).addTo(positionMapInstance);
-  tiles.on("tileerror", (e) => { if (e.tile) e.tile.style.visibility = "hidden"; });
+  activeTileLayer = buildTileLayer(mapLayerId);
+  activeTileLayer.addTo(positionMapInstance);
+  paintSegment("map-layer-tags", "layer", mapLayerId, TAG_ACTIVE, TAG_INACTIVE);
 
   const emitterLayer = L.layerGroup().addTo(positionMapInstance);
   EMITTERS.forEach(e => {
@@ -1111,6 +1211,175 @@ function updatePositionMap(){
     positionMapInstance.setView(ll, Math.max(positionMapInstance.getZoom() || 13, 13));
   }
 }
+
+/* ======================================================================
+   PRÉCHARGEMENT D'UNE ZONE HORS-LIGNE
+   Télécharge par avance les tuiles de la vue actuelle de la carte (fond
+   actif — OSM ou IGN) plutôt que de compter sur le hasard des zones déjà
+   affichées : à faire chez soi ou au parking, avec du réseau, avant de
+   partir. Couvre 1 à 3 niveaux de zoom (celui affiché, puis un ou deux
+   plus détaillés) tant que le total reste sous PRELOAD_MAX_TILES, pour
+   ne jamais lancer un téléchargement démesuré si la vue est très large.
+   ====================================================================== */
+const CACHE_NAME = "gra-locator-v18"; // ⚠️ garder identique à CACHE_NAME dans sw.js
+const TILES_CACHE_NAME = "gra-locator-tiles"; // ⚠️ garder identique à TILES_CACHE_NAME dans sw.js
+const PRELOAD_LAST_KEY = "gra-locator-last-preload";
+const PRELOAD_MAX_TILES = 600;      // ≈ quelques Mo à quelques dizaines de Mo selon le fond
+const PRELOAD_EXTRA_ZOOM_LEVELS = 2; // niveau actuel + jusqu'à 2 plus détaillés
+const PRELOAD_PADDING_RATIO = 0.25;  // marge autour de la vue actuelle, pour pouvoir se déplacer un peu sur place
+const PRELOAD_CONCURRENCY = 4;       // requêtes en parallèle — reste raisonnable pour le serveur et un réseau de montagne
+
+function tileUrlFor(layerId, z, x, y){
+  return MAP_LAYERS[layerId].url.replace("{z}", z).replace("{x}", x).replace("{y}", y);
+}
+function lonToTileX(lon, z){ return Math.floor((lon + 180) / 360 * Math.pow(2, z)); }
+function latToTileY(lat, z){
+  const clamped = Math.max(-85.05112878, Math.min(85.05112878, lat)); // limite de la projection Web Mercator
+  const rad = deg2rad(clamped);
+  return Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * Math.pow(2, z));
+}
+function tilesForBoundsAtZoom(bounds, z){
+  const n = Math.pow(2, z);
+  const x1 = lonToTileX(bounds.getWest(), z), x2 = lonToTileX(bounds.getEast(), z);
+  const y1 = latToTileY(bounds.getNorth(), z), y2 = latToTileY(bounds.getSouth(), z);
+  const tiles = [];
+  for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++){
+    for (let y = Math.max(0, Math.min(y1, y2)); y <= Math.min(n - 1, Math.max(y1, y2)); y++){
+      tiles.push({ z, x: ((x % n) + n) % n, y });
+    }
+  }
+  return tiles;
+}
+
+// Construit la liste des tuiles à précharger pour la vue actuelle : le
+// niveau de zoom affiché, puis un ou deux niveaux plus détaillés tant que
+// le total reste sous PRELOAD_MAX_TILES (toujours au moins le niveau de
+// base, même s'il dépasse déjà le plafond à lui seul).
+function buildPreloadPlan(){
+  const def = MAP_LAYERS[mapLayerId];
+  const nativeMax = def.options.maxNativeZoom || def.options.maxZoom;
+  const nativeMin = def.options.minZoom || 0;
+  const baseZoom = Math.max(nativeMin, Math.min(positionMapInstance.getZoom(), nativeMax));
+  const bounds = positionMapInstance.getBounds().pad(PRELOAD_PADDING_RATIO);
+
+  const zoomsUsed = [];
+  let tiles = [];
+  for (let extra = 0; extra <= PRELOAD_EXTRA_ZOOM_LEVELS; extra++){
+    const z = Math.min(baseZoom + extra, nativeMax);
+    if (zoomsUsed.includes(z)) continue; // déjà couvert (plafonné par nativeMax)
+    const candidate = tilesForBoundsAtZoom(bounds, z);
+    if (tiles.length > 0 && tiles.length + candidate.length > PRELOAD_MAX_TILES) break;
+    zoomsUsed.push(z);
+    tiles = tiles.concat(candidate);
+    if (tiles.length > PRELOAD_MAX_TILES) break;
+  }
+  return { tiles, zoomsUsed, layerId: mapLayerId };
+}
+
+function formatBytes(n){
+  if (!n) return "0 Mo";
+  const mo = n / (1024 * 1024);
+  return (mo < 0.1 ? "< 0,1" : mo.toFixed(1).replace(".", ",")) + " Mo";
+}
+function relativeTimeFrom(ms){
+  const min = Math.round((Date.now() - ms) / 60000);
+  if (min < 1) return "à l'instant";
+  if (min < 60) return "il y a " + min + " min";
+  const h = Math.round(min / 60);
+  if (h < 24) return "il y a " + h + " h";
+  return "il y a " + Math.round(h / 24) + " j";
+}
+
+let preloadInProgress = false;
+
+function updatePreloadButtonLabel(){
+  if (preloadInProgress) return;
+  const label = el("btn-preload-label");
+  if (label) label.textContent = "Précharger cette zone hors-ligne (" + (mapLayerId === "ign" ? "IGN" : "OSM") + ")";
+}
+
+// Affiche l'état du dernier préchargement (session précédente comprise),
+// tant qu'aucun nouveau préchargement n'a encore tourné dans cette page.
+function renderPreloadStatus(){
+  if (preloadInProgress) return;
+  const result = el("preload-result-text");
+  let info = null;
+  try { info = JSON.parse(localStorage.getItem(PRELOAD_LAST_KEY) || "null"); } catch (err) {}
+  if (!info){ result.classList.add("hidden"); return; }
+  result.textContent = "Dernier préchargement : " + relativeTimeFrom(info.at) + " · " + info.tiles + " tuiles (" + (info.layer === "ign" ? "IGN" : "OSM") + ", " + formatBytes(info.bytes) + ")";
+  result.classList.remove("hidden");
+}
+
+async function startPreload(){
+  if (preloadInProgress || !positionMapInstance) return;
+  const plan = buildPreloadPlan();
+  if (plan.tiles.length === 0) return;
+
+  preloadInProgress = true;
+  const btn = el("btn-preload-zone"), iconEl = el("btn-preload-icon"), label = el("btn-preload-label");
+  const wrap = el("preload-progress-wrap"), bar = el("preload-progress-bar"), text = el("preload-progress-text");
+  const result = el("preload-result-text");
+
+  btn.disabled = true;
+  iconEl.innerHTML = icon("download", "w-4 h-4 animate-spin");
+  label.textContent = "Téléchargement…";
+  result.classList.add("hidden");
+  wrap.classList.remove("hidden");
+  bar.style.width = "0%";
+  const total = plan.tiles.length;
+  text.textContent = "0 / " + total + " tuiles";
+
+  const cache = await caches.open(TILES_CACHE_NAME);
+  let done = 0, failed = 0, bytes = 0, idx = 0;
+
+  async function worker(){
+    while (idx < plan.tiles.length){
+      const t = plan.tiles[idx++];
+      const url = tileUrlFor(plan.layerId, t.z, t.x, t.y);
+      try {
+        const resp = await fetch(url, { mode: "cors" });
+        if (resp && resp.ok){
+          bytes += parseInt(resp.headers.get("content-length") || "0", 10);
+          await cache.put(url, resp);
+        } else {
+          failed++;
+        }
+      } catch (err) {
+        failed++;
+      }
+      done++;
+      bar.style.width = Math.round((done / total) * 100) + "%";
+      text.textContent = done + " / " + total + " tuiles" + (failed ? " (" + failed + " échec" + (failed > 1 ? "s" : "") + ")" : "") + (bytes ? " · " + formatBytes(bytes) : "");
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(PRELOAD_CONCURRENCY, total) }, worker));
+
+  preloadInProgress = false;
+  btn.disabled = false;
+  iconEl.innerHTML = icon("download", "w-4 h-4");
+  updatePreloadButtonLabel();
+  wrap.classList.add("hidden");
+  result.classList.remove("hidden");
+
+  const zoomLabel = plan.zoomsUsed.length > 1
+    ? "niveaux " + Math.min(...plan.zoomsUsed) + " à " + Math.max(...plan.zoomsUsed)
+    : "niveau " + plan.zoomsUsed[0];
+  const ok = total - failed;
+  if (failed === 0){
+    result.textContent = "✓ Zone disponible hors-ligne · " + total + " tuiles (" + zoomLabel + ", " + formatBytes(bytes) + ")";
+    showToast("Zone préchargée pour un usage hors-ligne", "success");
+  } else if (ok > 0){
+    result.textContent = "Préchargement partiel · " + ok + "/" + total + " tuiles (" + failed + " échec" + (failed > 1 ? "s" : "") + " — réessayez avec un meilleur signal)";
+    showToast("Préchargement partiel : signal instable", "error");
+  } else {
+    result.textContent = "Échec du préchargement — vérifiez votre connexion et réessayez.";
+    showToast("Préchargement impossible sans réseau", "error");
+  }
+  try { localStorage.setItem(PRELOAD_LAST_KEY, JSON.stringify({ at: Date.now(), tiles: ok, bytes, layer: plan.layerId })); } catch (err) {}
+}
+el("btn-preload-zone").addEventListener("click", startPreload);
+updatePreloadButtonLabel();
+el("btn-preload-icon").innerHTML = icon("download", "w-4 h-4");
 
 /* ======================================================================
    RADAR BOUSSOLE — cadran SVG orienté selon le cap du téléphone.
@@ -1893,6 +2162,7 @@ switchTab(initialTab);
 updateSwStatusBadge();
 updateInstallCard();
 renderAccidentTimestamp();
+renderPreloadStatus();
 startGeolocation();
 </script>
 </body>
