@@ -238,8 +238,21 @@
       <!-- Horodatage de l'accident — capture l'heure en un tap, pour la
            transmettre au régulateur. Un reset explicite (bouton ⨉) est requis
            avant de pouvoir recapturer, même logique défensive que l'espacement
-           entre les boutons 112/114 : on évite d'écraser l'heure par erreur. -->
-      <div id="accident-timestamp" class="mb-3.5"></div>
+           entre les boutons 112/114 : on évite d'écraser l'heure par erreur.
+           Partage sa ligne avec l'adresse postale (#position-address,
+           rétro-géocodage — voir plus bas) : le contrôle (bouton/pastille)
+           garde une largeur fixe (flex-none) pour rester un bouton confortable
+           à toucher, l'adresse absorbe le reste de la largeur (flex-1) et ne
+           s'affiche que si elle a pu être résolue — d'où le rétrécissement
+           "automatique" du bouton demandé, sans jamais le comprimer sous sa
+           taille de contenu. -->
+      <div class="mb-3.5">
+        <div class="flex items-center gap-2.5">
+          <div id="accident-timestamp" class="flex-none"></div>
+          <div id="position-address" class="hidden flex-1 min-w-0"></div>
+        </div>
+        <p id="accident-timestamp-hint" class="hidden text-[11px] text-slate-400 dark:text-slate-500 mt-1.5"></p>
+      </div>
       <!-- Tags de format — bascule rapide DD / DMS / UTM / Lambert 93, partagée
            avec Secours vitaux et mémorisée (remplace l'ancien réglage dans
            Préférences, devenu redondant avec ces tags). -->
@@ -364,8 +377,9 @@
       </div>
 
       <!-- En l'absence de réseau (zone blanche), relais radio vers le Grand
-           Réseau des Alpes (GRA) ou Emergency74 — canal/indicatif/message
-           à compléter par le club, ce ne sont pas des valeurs inventées ici. -->
+           Réseau des Alpes (GRA) ou Emergency74. Canal/indicatif retirés
+           (c'étaient des placeholders jamais complétés par le club) — seul
+           le relais le plus proche est calculé automatiquement ci-dessous. -->
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
         <div class="flex items-center gap-3">
           <span class="flex-none w-9 h-9 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
@@ -373,7 +387,7 @@
           </span>
           <div class="flex-1 min-w-0">
             <span class="block text-[13.5px] font-bold">Pas de réseau ? Passez par la radio</span>
-            <span class="block text-[11.5px] text-slate-400 dark:text-slate-500 mt-0.5">GRA / Emergency74 · Canal [À COMPLÉTER] · Indicatif [À COMPLÉTER]</span>
+            <span class="block text-[11.5px] text-slate-400 dark:text-slate-500 mt-0.5">GRA / Emergency74</span>
           </div>
         </div>
         <button id="btn-goto-radar-from-secours" class="mt-3 w-full min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[12.5px] active:scale-[0.98] transition">
@@ -571,6 +585,7 @@ const ICON_PATHS = {
   smartphone: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
   clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
   x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  mapPin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
 };
 function icon(name, cls){
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls || "w-4 h-4"}">${ICON_PATHS[name]}</svg>`;
@@ -975,13 +990,17 @@ function resetAccidentTime(){
 }
 function renderAccidentTimestamp(){
   const container = el("accident-timestamp");
+  const hint = el("accident-timestamp-hint");
   if (!container) return;
   if (accidentTimeMs != null){
     const d = new Date(accidentTimeMs);
     const hh = String(d.getHours()).padStart(2, "0");
     const mm = String(d.getMinutes()).padStart(2, "0");
+    // inline-flex (pas flex) : la pastille garde la largeur de son contenu
+    // au lieu de s'étirer sur toute la ligne — voir le commentaire au-dessus
+    // du conteneur HTML.
     container.innerHTML = `
-      <div class="flex items-center justify-between gap-2.5 rounded-xl bg-club-red-50 dark:bg-club-red-500/10 border border-club-red-200 dark:border-club-red-500/30 px-3.5 py-2.5">
+      <div class="inline-flex items-center justify-between gap-2.5 rounded-xl bg-club-red-50 dark:bg-club-red-500/10 border border-club-red-200 dark:border-club-red-500/30 px-3.5 py-2.5">
         <span>
           <span class="block text-[10.5px] font-extrabold uppercase tracking-wide text-club-red-600 dark:text-club-red-400">Accident horodaté</span>
           <span class="block font-mono font-extrabold text-[18px] text-club-red-700 dark:text-club-red-300 mt-0.5">${hh}:${mm}</span>
@@ -992,16 +1011,193 @@ function renderAccidentTimestamp(){
       </div>
     `;
     el("btn-accident-reset").addEventListener("click", resetAccidentTime);
+    if (hint){ hint.classList.add("hidden"); hint.textContent = ""; }
   } else {
+    // Largeur de contenu (pas w-full) : le bouton se réduit à sa taille
+    // naturelle pour laisser la place à l'adresse postale à sa droite quand
+    // elle est disponible (#position-address, flex-1 dans le conteneur
+    // parent) ; seul le texte d'aide reste sur toute la largeur, en dehors
+    // de cette ligne.
     container.innerHTML = `
-      <button id="btn-accident-mark" class="min-h-[46px] w-full inline-flex items-center justify-center gap-2 rounded-xl border-[1.5px] border-club-red-500 text-club-red-500 dark:text-club-red-400 font-extrabold text-[13px] tracking-wide active:scale-[0.98] transition">
+      <button id="btn-accident-mark" class="min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl border-[1.5px] border-club-red-500 text-club-red-500 dark:text-club-red-400 font-extrabold text-[13px] tracking-wide active:scale-[0.98] transition">
         ${icon("clock", "w-4 h-4")}
         <span>Horodater l'accident</span>
       </button>
-      <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Enregistre l'heure actuelle. À utiliser dès la survenue de l'accident, pour la transmettre au régulateur.</p>
     `;
     el("btn-accident-mark").addEventListener("click", markAccidentTime);
+    if (hint){
+      hint.textContent = "Enregistre l'heure actuelle. À utiliser dès la survenue de l'accident, pour la transmettre au régulateur.";
+      hint.classList.remove("hidden");
+    }
   }
+}
+
+/* ======================================================================
+   ADRESSE POSTALE (rétro-géocodage) — onglet Position + Secours vitaux
+   Convertit la position GPS en une adresse lisible (Code postal, Commune,
+   Lieu-dit et/ou voie) via le service de géocodage de la Géoplateforme IGN
+   (data.geopf.fr) : même domaine que les tuiles IGN déjà utilisées plus bas
+   pour le fond de carte, sans clé ni compte, CORS ouvert (vérifié). Deux
+   index interrogés en une seule requête : "address" (adresses BAN : numéro
+   + voie) pour les zones habitées, et "poi" (toponymes IGN : lieux-dits,
+   sommets, glaciers, refuges, hameaux, communes…) qui reste seul renseigné
+   dès qu'on s'éloigne des adresses postales classiques — la situation la
+   plus fréquente pour une sortie en montagne. Chaque entrée porte sa propre
+   distance au point interrogé (mètres) : on ne retient un résultat que s'il
+   est raisonnablement proche, jamais la première réponse venue.
+   N'aboutit que si le smartphone est effectivement connecté au moment de la
+   requête (voir maybeReverseGeocode) : sans réseau, l'appel échoue et
+   currentAddress reste à null — aucune adresse ne s'affiche alors, comme
+   demandé, les coordonnées GPS déjà affichées restant seules la référence.
+   Voir aussi sw.js : cette requête contourne délibérément le cache du
+   service worker (ni lue ni écrite), pour ne jamais servir une adresse
+   obsolète hors-ligne.
+   ====================================================================== */
+const GEOCODE_ENDPOINT = "https://data.geopf.fr/geocodage/reverse";
+const GEOCODE_MIN_INTERVAL_MS = 12000;        // ne jamais interroger plus souvent que ça (l'API limite à 1 req/s)
+const GEOCODE_MIN_MOVE_M = 40;                // en dessous, on réutilise l'adresse déjà résolue plutôt que de réinterroger
+const GEOCODE_RETRY_WHILE_STATIC_MS = 120000; // à l'arrêt sans adresse connue (échec précédent), on retente à ce rythme
+const GEOCODE_TIMEOUT_MS = 8000;              // réseau montagne parfois très lent : on abandonne plutôt que de bloquer
+const GEOCODE_MAX_ADDRESS_DISTANCE_M = 600;   // au-delà, une adresse (n° + voie) n'est plus pertinente pour "où je suis"
+const GEOCODE_MAX_POI_DISTANCE_M = 2500;      // au-delà, un lieu-dit/sommet/glacier n'est plus pertinent non plus
+
+let currentAddress = null; // { postcode, city, place } — place = lieu-dit/voie, peut être vide ; null = rien d'exploitable
+let lastGeocodeAt = 0;
+let lastGeocodeLat = null, lastGeocodeLon = null;
+let geocodeAbortController = null;
+
+// Extrait la meilleure adresse exploitable d'une liste de résultats déjà
+// triés par distance croissante par l'API. Les entrées "address" (BAN) ont
+// des champs texte simples ; les entrées "poi" (toponymes IGN) fournissent
+// les mêmes champs sous forme de tableaux (doc Géoplateforme) — d'où les
+// deux lectures différentes ci-dessous.
+function extractAddress(features){
+  let best = null;       // adresse ou lieu-dit précis, à distance raisonnable
+  let bestCommune = null; // repli : au moins le code postal + la commune
+
+  for (const f of features){
+    const p = (f && f.properties) || {};
+    const distance = p.distance;
+
+    if (p._type === "address"){
+      if (!best && distance != null && distance <= GEOCODE_MAX_ADDRESS_DISTANCE_M && p.postcode && p.city){
+        best = { postcode: p.postcode, city: p.city, place: p.name || p.street || "" };
+      }
+      if (!bestCommune && p.postcode && p.city){
+        bestCommune = { postcode: p.postcode, city: p.city, place: "" };
+      }
+      continue;
+    }
+
+    if (p._type === "poi"){
+      const category = p.category || [];
+      const isAdmin = category.includes("administratif");
+      const postcode = Array.isArray(p.postcode) ? p.postcode[0] : p.postcode;
+      const city = Array.isArray(p.city) ? p.city[0] : p.city;
+      const name = Array.isArray(p.name) ? p.name[0] : (p.toponym || p.name);
+
+      if (!isAdmin && !best && distance != null && distance <= GEOCODE_MAX_POI_DISTANCE_M && postcode && city){
+        best = { postcode, city, place: name || "" };
+      }
+      if (!bestCommune && postcode && city){
+        bestCommune = { postcode, city, place: "" };
+      }
+      // Repli ultime près d'un centre-bourg : l'entrée "commune" elle-même
+      // n'a pas de champ "city" (elle EST la commune) — on l'utilise via son
+      // propre nom si aucune autre entrée n'a fourni de commune.
+      if (!bestCommune && isAdmin && category.includes("commune") && p.postcode && name){
+        bestCommune = { postcode: Array.isArray(p.postcode) ? p.postcode[0] : p.postcode, city: name, place: "" };
+      }
+    }
+  }
+
+  return best || bestCommune; // null si vraiment rien d'exploitable à une distance raisonnable
+}
+
+// "38520 Saint-Christophe-en-Oisans · Plat des Étançons" (ou sans la partie
+// lieu-dit/voie si elle est absente — le "et/ou" demandé).
+function formatAddressLine(addr){
+  if (!addr) return "";
+  const cpCommune = `${addr.postcode} ${addr.city}`;
+  return addr.place ? `${cpCommune} · ${addr.place}` : cpCommune;
+}
+
+function renderPositionAddress(){
+  const container = el("position-address");
+  if (!container) return;
+  if (!currentAddress){
+    container.classList.add("hidden");
+    container.innerHTML = "";
+    return;
+  }
+  container.classList.remove("hidden");
+  container.innerHTML = `
+    <span class="inline-flex items-start gap-1 text-[12px] leading-snug text-slate-500 dark:text-slate-400">
+      ${icon("mapPin", "w-3.5 h-3.5 flex-none mt-0.5 text-slate-400 dark:text-slate-500")}
+      <span class="font-semibold text-slate-600 dark:text-slate-300">${escapeXml(formatAddressLine(currentAddress))}</span>
+    </span>
+  `;
+}
+
+// Lance (ou non) une requête de rétro-géocodage pour la position donnée —
+// throttlée à la fois par le temps écoulé et par la distance parcourue
+// depuis la dernière requête, pour rester largement sous la limite de
+// fréquence de l'API tout en restant utile à l'arrêt comme en marche.
+async function maybeReverseGeocode(lat, lon){
+  const now = Date.now();
+  const moved = lastGeocodeLat != null ? distanceMeters(lat, lon, lastGeocodeLat, lastGeocodeLon) : Infinity;
+  const stale = now - lastGeocodeAt;
+
+  if (moved < GEOCODE_MIN_MOVE_M){
+    // Position quasiment inchangée : inutile de réinterroger si on a déjà
+    // une adresse valide pour ce coin ; sinon (échec précédent probable) on
+    // retente de temps en temps, au cas où le réseau serait revenu.
+    if (currentAddress || stale < GEOCODE_RETRY_WHILE_STATIC_MS) return;
+  } else if (stale < GEOCODE_MIN_INTERVAL_MS){
+    return;
+  }
+
+  // navigator.onLine peut être imprécis (Wi-Fi sans accès Internet réel),
+  // mais évite ici une tentative vouée à l'échec quand il est explicitement
+  // à false ; dans tous les cas, c'est l'échec de la requête elle-même
+  // ci-dessous qui décide en dernier ressort d'afficher ou non l'adresse.
+  if ("onLine" in navigator && !navigator.onLine) return;
+
+  lastGeocodeAt = now;
+  lastGeocodeLat = lat;
+  lastGeocodeLon = lon;
+
+  if (geocodeAbortController) geocodeAbortController.abort();
+  const myController = new AbortController();
+  geocodeAbortController = myController;
+  const timeoutId = setTimeout(() => myController.abort(), GEOCODE_TIMEOUT_MS);
+
+  let result = null;
+  try {
+    const url = `${GEOCODE_ENDPOINT}?lon=${lon}&lat=${lat}&index=address,poi&limit=5`;
+    const res = await fetch(url, { signal: myController.signal });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    result = extractAddress((data && data.features) || []);
+  } catch (err) {
+    // Pas de réseau, délai dépassé, service indisponible… on n'affiche
+    // aucune erreur : c'est une information secondaire, les coordonnées GPS
+    // restent la référence et sont déjà affichées indépendamment de ceci.
+    result = null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  // Une position plus récente a pu déclencher une nouvelle requête entre-
+  // temps (voir l'abort ci-dessus) : si ce n'est plus la dernière en date,
+  // on ignore ce résultat pour ne jamais écraser une adresse plus fraîche
+  // avec une réponse arrivée en retard (les réponses réseau peuvent revenir
+  // dans le désordre).
+  if (geocodeAbortController !== myController) return;
+
+  currentAddress = result;
+  renderPositionAddress();
+  renderEmergencyPosition();
 }
 
 function showLocationError(message, opts){
@@ -1034,6 +1230,7 @@ function startGeolocation(){
       renderRadarMarkers();
       renderRadarList();
       renderEmergencyPosition();
+      maybeReverseGeocode(pos.coords.latitude, pos.coords.longitude);
     },
     (err) => {
       let message = "Erreur de localisation : " + err.message;
@@ -1738,6 +1935,12 @@ function emergencyPositionRows(format, latitude, longitude){
 
 // Position GPS affichée en très grand dans le sous-onglet "Secours vitaux" —
 // réutilise directement currentPosition, mis à jour par startGeolocation().
+// L'adresse postale (currentAddress, voir maybeReverseGeocode plus haut)
+// s'affiche en première ligne, avant les coordonnées : c'est la première
+// chose qu'un régulateur reconnaît à l'oral, les coordonnées précises
+// venant ensuite. Absente si non résolue (hors connexion, ou rien
+// d'exploitable à proximité) — uniquement les coordonnées dans ce cas,
+// comme aujourd'hui.
 function renderEmergencyPosition(){
   const body = el("emergency-position-body");
   if (!body) return;
@@ -1746,7 +1949,13 @@ function renderEmergencyPosition(){
     return;
   }
   const { latitude, longitude, accuracy, altitude } = currentPosition;
-  body.innerHTML = [
+  const addressHtml = currentAddress ? `
+    <div class="flex items-start gap-1.5 pb-2.5 mb-1.5 border-b border-slate-100 dark:border-slate-800">
+      ${icon("mapPin", "w-4 h-4 flex-none mt-0.5 text-brand-500 dark:text-brand-400")}
+      <span class="text-[13.5px] font-bold leading-snug">${escapeXml(formatAddressLine(currentAddress))}</span>
+    </div>
+  ` : "";
+  body.innerHTML = addressHtml + [
     ...emergencyPositionRows(coordFormat, latitude, longitude),
     emergencyCoordRow("Altitude", altitude != null ? Math.round(altitude) + " m" : "—"),
     emergencyCoordRow("Précision", accuracy != null ? "±" + Math.round(accuracy) + " m" : "—"),

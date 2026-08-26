@@ -69,6 +69,25 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
+  // Adresse postale (rétro-géocodage, voir maybeReverseGeocode dans
+  // index.html) : requête toujours envoyée telle quelle au réseau, jamais
+  // lue ni écrite en cache. Même hôte que les tuiles IGN (data.geopf.fr,
+  // voir TILE_HOSTS) mais chemin différent — on ne veut PAS du traitement
+  // "cache d'abord" ci-dessous pour ce chemin précis : chaque requête
+  // correspond à des coordonnées GPS quasi uniques (la mettre en cache ferait
+  // grossir indéfiniment TILES_CACHE_NAME, jamais purgée, pour un résultat
+  // presque jamais réutilisé), et surtout l'adresse doit refléter une
+  // connexion réseau réelle au moment présent — une réponse servie depuis le
+  // cache hors-ligne irait à l'encontre du comportement demandé (l'adresse
+  // ne doit apparaître que si le smartphone est effectivement connecté).
+  try {
+    const reqUrl = new URL(event.request.url);
+    if (reqUrl.host === "data.geopf.fr" && reqUrl.pathname.startsWith("/geocodage/")){
+      event.respondWith(fetch(event.request));
+      return;
+    }
+  } catch (err) {}
+
   // La page HTML elle-même : "réseau d'abord". Ainsi, dès qu'il y a du
   // signal, la dernière version publiée sur GitHub Pages s'affiche
   // directement (et se remet en cache pour le hors-ligne). Seulement si le
