@@ -1874,19 +1874,23 @@ setCoordFormat(coordFormat, false);
    Numéros et contrats ci-dessous : valeurs d'EXEMPLE à remplacer par les
    vraies coordonnées du club avant mise en ligne. C'est le SEUL endroit à
    modifier pour personnaliser ce module.
+   Pas de champ "phoneLabel" (forme lisible "06 75 08 13 73") : les numéros
+   ne sont plus affichés en clair nulle part dans ce sous-onglet — comme les
+   e-mails, seulement utilisés dans les boutons Appeler/SMS (voir
+   emergencyContactCard) — "phone" (E.164, ex. "+33675081373") suffit.
    ====================================================================== */
 const EMERGENCY_CONFIG = {
-  security:  { name: "Anne MAILLOT — Responsable Sécurité", phone: "+33675081373", phoneLabel: "06 75 08 13 73", email: "maillot.anne@gmail.com" },
-  president: { name: "Pierre RUEF — Président du club", phone: "+33619816400", phoneLabel: "06 19 81 64 00", email: "pierre.ruef@cafgrenoble.com" },
+  security:  { name: "Anne MAILLOT — Responsable Sécurité", phone: "+33675081373", email: "maillot.anne@gmail.com" },
+  president: { name: "Pierre RUEF — Président du club", phone: "+33619816400", email: "pierre.ruef@cafgrenoble.com" },
   insurance: {
     label: "Assurance du club (RC & Défense) — Gras Savoye",
-    phone: "+33972722243", phoneLabel: "09 72 72 22 43",
+    phone: "+33972722243",
     email: "fr.ffcam@wtwco.com",
     policyNumber: "Contrat AXA n° 47 064 589 04",
   },
   repatriation: {
     provider: "Mutuaide",
-    phone: "+33155985798", phoneLabel: "01 55 98 57 98", // même numéro pour la France et l'étranger
+    phone: "+33155985798", // même numéro pour la France et l'étranger
     contractNumber: "3462",
   },
 };
@@ -1990,31 +1994,50 @@ el("btn-sms-114").addEventListener("click", () => {
 
 /* ---------- Sous-onglet "Contacts & Assurances" ---------- */
 // Contact de crise (personne ou service) avec ses canaux réunis sur UNE
-// seule carte — nom/rôle affiché une seule fois, puis une rangée de boutons
-// à largeur égale (Appeler, SMS, Écrire selon ce qui est fourni/pertinent).
-// Réutilisée pour les 4 entrées de ce sous-onglet (Anne, Pierre, assurance,
-// rapatriement) plutôt qu'une ligne dédiée par canal : avec plusieurs
-// canaux pour une même entrée, une ligne par canal répète le nom/titre à
-// l'identique sur plusieurs lignes empilées — la redondance à éviter ici.
-// Le SMS réutilise le même numéro que l'appel (sms: accepte le même format
-// que tel:) ; smsEnabled=false le désactive pour l'assurance et le
-// rapatriement (numéro de centre d'assistance, pas un mobile personnel).
-// L'e-mail n'apparaît que si fourni.
-function emergencyContactCard(name, subtitle, phone, email, smsEnabled){
+// seule carte — nom affiché une seule fois (jamais le numéro : masqué au
+// même titre que les e-mails, uniquement utilisé dans les boutons), puis une
+// rangée de boutons à largeur égale (Appeler, SMS, Écrire selon ce qui est
+// pertinent/fourni). Réutilisée pour les 4 entrées de ce sous-onglet (Anne,
+// Pierre, assurance, rapatriement) plutôt qu'une ligne dédiée par canal :
+// avec plusieurs canaux pour une même entrée, une ligne par canal répète le
+// nom/titre à l'identique sur plusieurs lignes empilées — la redondance à
+// éviter ici.
+//   - name : facultatif — omis pour Mutuaide, dont le nom serait redondant
+//     avec le titre de la carte qui le contient déjà ("Rapatriement -
+//     Mutuaide").
+//   - opts.sms (def. true) : désactivé pour l'assurance et le rapatriement
+//     (numéro de centre d'assistance, pas un mobile personnel) ; réutilise
+//     le même numéro que l'appel (sms: accepte le même format que tel:).
+//   - opts.email : bouton "Écrire" ajouté seulement si fourni.
+//   - opts.note/opts.noteLabel : bloc affiché AU-DESSUS des boutons (ex. le
+//     n° de contrat Mutuaide) — inversé par rapport à emergencyLabelBlock
+//     (utilisée pour l'assurance), qui reste APRÈS la carte de contact.
+function emergencyContactCard(name, phone, opts){
+  opts = opts || {};
   const actionCls = "flex-1 min-h-[40px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-brand-600 dark:text-brand-400 font-bold text-[11.5px] active:scale-95 transition";
   const actions = [
     `<a href="${telHref(phone)}" class="${actionCls}">${icon("phone", "w-3.5 h-3.5")}<span>Appeler</span></a>`,
   ];
-  if (smsEnabled !== false){
+  if (opts.sms !== false){
     const smsHrefValue = "sms:" + String(phone).replace(/[^\d+]/g, "");
     actions.push(`<a href="${smsHrefValue}" class="${actionCls}">${icon("messageSquare", "w-3.5 h-3.5")}<span>SMS</span></a>`);
   }
-  if (email) actions.push(`<a href="mailto:${email}" class="${actionCls}">${icon("mail", "w-3.5 h-3.5")}<span>Écrire</span></a>`);
-  return `<div class="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-3">
-    <span class="block text-[13px] font-bold">${escapeXml(name)}</span>
-    <span class="block text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">${escapeXml(subtitle)}</span>
-    <div class="flex gap-2 mt-2.5">${actions.join("")}</div>
-  </div>`;
+  if (opts.email) actions.push(`<a href="mailto:${opts.email}" class="${actionCls}">${icon("mail", "w-3.5 h-3.5")}<span>Écrire</span></a>`);
+
+  const blocks = [];
+  if (name) blocks.push(`<span class="block text-[13px] font-bold">${escapeXml(name)}</span>`);
+  if (opts.note){
+    blocks.push(`<div>
+      <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">${escapeXml(opts.noteLabel || "")}</span>
+      <span class="block font-mono font-bold text-[14px] leading-snug">${escapeXml(opts.note)}</span>
+    </div>`);
+  }
+  blocks.push(`<div class="flex gap-2">${actions.join("")}</div>`);
+
+  // flex-col + gap (plutôt que des marges sur chaque bloc) : espace
+  // correctement les blocs présents quel que soit le sous-ensemble réuni
+  // (nom seul, note seule, les deux, ou juste les boutons).
+  return `<div class="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-3 flex flex-col gap-2.5">${blocks.join("")}</div>`;
 }
 function emergencyCard(title, innerHtml){
   return `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
@@ -2041,23 +2064,35 @@ function renderEmergencyContacts(){
 
   el("emergency-contacts-body").innerHTML = [
     emergencyCard("Contacts de crise du club", [
-      emergencyContactCard(cfg.security.name, cfg.security.phoneLabel, cfg.security.phone, cfg.security.email),
-      emergencyContactCard(cfg.president.name, cfg.president.phoneLabel, cfg.president.phone, cfg.president.email),
+      emergencyContactCard(cfg.security.name, cfg.security.phone, { email: cfg.security.email }),
+      emergencyContactCard(cfg.president.name, cfg.president.phone, { email: cfg.president.email }),
     ].join(ROW_GAP)),
 
     emergencyCard(cfg.insurance.label,
-      emergencyContactCard("Assistance assureur", cfg.insurance.phoneLabel, cfg.insurance.phone, cfg.insurance.email, false)
+      emergencyContactCard("Assistance assureur", cfg.insurance.phone, { email: cfg.insurance.email, sms: false })
       + emergencyLabelBlock("N° de contrat / police", cfg.insurance.policyNumber)),
+
+    // Remonté au-dessus de la carte licence (moins consulté, en bas
+    // d'écran, quitte à défiler) : Rapatriement/Mutuaide reste utile en
+    // urgence, la licence beaucoup plus rarement. Pas de nom sur la carte
+    // de contact ci-dessous (voir emergencyContactCard) : le titre "
+    // Rapatriement - Mutuaide" l'identifie déjà, un second "Rapatriement"
+    // juste en dessous serait redondant. Le n° de contrat est placé en
+    // "note" (au-dessus du bouton Appeler), pas en emergencyLabelBlock
+    // (après, comme pour l'assurance) : demandé explicitement pour cette
+    // carte précise.
+    emergencyCard("Rapatriement - " + cfg.repatriation.provider,
+      emergencyContactCard(null, cfg.repatriation.phone, {
+        sms: false,
+        note: cfg.repatriation.contractNumber,
+        noteLabel: "N° de contrat",
+      })),
 
     `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <span class="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">Mon n° de licence / adhérent</span>
       <span class="block font-mono font-bold text-[16px]">${license ? escapeXml(license) : "—"}</span>
       <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-2">Modifiable dans l'onglet Préférences.</p>
     </div>`,
-
-    emergencyCard("Rapatriement & mutuelle — " + cfg.repatriation.provider,
-      emergencyContactCard("Rapatriement", cfg.repatriation.phoneLabel, cfg.repatriation.phone, null, false)
-      + emergencyLabelBlock("N° de contrat", cfg.repatriation.contractNumber)),
   ].join(CARD_GAP);
 }
 renderEmergencyContacts();
